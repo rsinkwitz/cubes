@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 let scene, camera, renderer, cube;
+let animationPaused = false;
 
 function init() {
   scene = new THREE.Scene();
@@ -23,43 +24,57 @@ function init() {
 
   camera.position.z = 5;
 
-  animate();
+  animate(); // Always start the animation loop
 }
 
 function animate() {
-  requestAnimationFrame(animate);
-  cube.rotation.x += 0.01;
-  cube.rotation.y += 0.01;
-  renderer.render(scene, camera);
+  if (!animationPaused) {
+    requestAnimationFrame(animate);
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.01;
+    cube.rotation.z += 0.01;
+    renderer.render(scene, camera);
+  }
 }
 
-document.addEventListener('keydown', event => {
-  window.ipcRenderer.send('keydown', event.key);
-});
+document.addEventListener('keydown', onKeyDown);
 
-window.ipcRenderer.on('keydown', (_, key) => {
-  switch (key) {
+function onKeyDown(event) {
+  switch (event.key) {
     case 'ArrowUp':
       cube.rotation.x += 0.1;
+      renderer.render(scene, camera);
       break;
     case 'ArrowDown':
       cube.rotation.x -= 0.1;
+      renderer.render(scene, camera);
       break;
     case 'ArrowLeft':
       cube.rotation.y += 0.1;
+      renderer.render(scene, camera);
       break;
     case 'ArrowRight':
       cube.rotation.y -= 0.1;
+      renderer.render(scene, camera);
       break;
     case 'z':
       cube.rotation.z += 0.1;
+      renderer.render(scene, camera);
       break;
     case 'Z':
       cube.rotation.z -= 0.1;
+      renderer.render(scene, camera);
+      break;
+    case 'p': // Pause animation
+    case 'P':
+      animationPaused = !animationPaused;
+      if (!animationPaused) {
+        animate(); // Resume animation
+      }
       break;
     default:
       break;
   }
-});
+}
 
 window.addEventListener('DOMContentLoaded', init);
