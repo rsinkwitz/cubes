@@ -1,17 +1,20 @@
 import * as THREE from 'three';
 
-let scene, camera, renderer, cube;
-let animationPaused = false;
+let scene: THREE.Scene;
+let camera: THREE.PerspectiveCamera;
+let renderer: THREE.WebGLRenderer;
+let cube: THREE.Mesh;
+let animationPaused: boolean = false;
 
-function init() {
+function init(): void {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  const geometry = new THREE.BoxGeometry();
-  const materials = [
+  const geometry: THREE.BoxGeometry = new THREE.BoxGeometry();
+  const materials: THREE.MeshBasicMaterial[] = [
     new THREE.MeshBasicMaterial({ color: 0xff0000 }),
     new THREE.MeshBasicMaterial({ color: 0x00ff00 }),
     new THREE.MeshBasicMaterial({ color: 0x0000ff }),
@@ -27,7 +30,7 @@ function init() {
   animate(); // Always start the animation loop
 }
 
-function animate() {
+function animate(): void {
   if (!animationPaused) {
     requestAnimationFrame(animate);
     cube.rotation.x += 0.01;
@@ -37,9 +40,7 @@ function animate() {
   }
 }
 
-document.addEventListener('keydown', onKeyDown);
-
-function onKeyDown(event) {
+function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case 'ArrowUp':
       cube.rotation.x += 0.1;
@@ -76,5 +77,7 @@ function onKeyDown(event) {
       break;
   }
 }
+
+document.addEventListener('keydown', onKeyDown);
 
 window.addEventListener('DOMContentLoaded', init);

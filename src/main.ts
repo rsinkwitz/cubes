@@ -13,7 +13,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.bundle.js') // Specify the preload script
     }
   });
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html')); // Adjusted path here
 

@@ -3,8 +3,8 @@ const path = require('path');
 module.exports = {
   mode: 'development',
   entry: {
-    renderer: './src/renderer.js',
-    preload: './preload.js' // Add preload script entry
+    renderer: './src/renderer.ts',
+    preload: './preload.js'
   },
   output: {
     filename: '[name].bundle.js',
@@ -16,6 +16,7 @@ module.exports = {
     __filename: false,
   },
   resolve: {
+    extensions: ['.js', '.ts'], // Add TypeScript extension
     modules: [
       path.resolve(__dirname, 'node_modules')
     ],
@@ -23,13 +24,10 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.js$/,
+        test: /\.ts$/,
         exclude: /(node_modules|bower_components)/,
         use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['@babel/preset-env']
-          }
+          loader: 'ts-loader'
         }
       }
     ]
