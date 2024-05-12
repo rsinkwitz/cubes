@@ -78,7 +78,7 @@ function createCube(x: number, y: number, z: number): THREE.Mesh {
   // Apply the translation matrix to the cube's matrix
   cube.matrix.multiply(translationMatrix);
 
-  cube.matrixAutoUpdate = false;
+  // cube.matrixAutoUpdate = false;
   scene.add(cube);
   return cube;
 }
@@ -132,6 +132,12 @@ function getRotationMatrix(axis: string, forward: boolean): THREE.Matrix4 {
 }
 
 function rotatePieces(pieces: THREE.Mesh[], axis: string, forward: boolean): void {
+  // apply rotation to each piece
+  pieces.forEach((piece) => {
+    piece.applyMatrix4(getRotationMatrix(axis, forward));
+  });
+
+  function rotatePieces0(pieces: THREE.Mesh[], axis: string, forward: boolean): void {
   let quaternion = getQuaternion(axis, forward);
 
   // Create a group and add all pieces to it
@@ -219,6 +225,47 @@ function tlTest(pieces: THREE.Mesh[]): void {
 
       // Remove the group from the scene
       scene.remove(group);
+    }
+  });
+}
+
+function rotatePieces1(pieces: THREE.Mesh[], axis: string, forward: boolean): void {
+  // Convert the target rotation from degrees to radians
+  const targetRotation = 45 * (Math.PI / 180);
+
+  // Create a pivot point at the origin
+  const pivot = new THREE.Object3D();
+  scene.add(pivot);
+
+  // Add the pieces to the pivot point
+  pieces.forEach(piece => {
+    // Calculate the position of the piece relative to the pivot point
+    const relativePosition = piece.position.clone();
+    // Create a new piece at the relative position
+    const newPiece = createCube(relativePosition.x, relativePosition.y, relativePosition.z);
+    // Add the new piece to the pivot point
+    pivot.add(newPiece);
+  });
+
+  // Animate the rotation of the pivot point
+  const startRotation = pivot.rotation[axis];
+  const dummy = { rotation: startRotation };
+  gsap.to(dummy, {
+    rotation: targetRotation,
+    duration: 1,
+    ease: "linear",
+    onUpdate: () => {
+      pivot.rotation[axis] = dummy.rotation;
+    },
+    onComplete: () => {
+      // At the end of the animation, update the pieces' matrices to reflect the final transformation of the pivot
+      pieces.forEach(piece => {
+        piece.matrixWorld.decompose(piece.position, piece.quaternion, piece.scale);
+        scene.add(piece); // Add the piece back to the scene
+      });
+
+      // Remove the pivot from the scene
+      scene.remove(pivot);
     }
   });
 }
