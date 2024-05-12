@@ -16,7 +16,7 @@ let camera: THREE.PerspectiveCamera;
 let controls : OrbitControls;
 let renderer: THREE.WebGLRenderer;
 let cube: THREE.Mesh;
-let animationPaused: boolean = false;
+let animationPaused: boolean = true;
 const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95,0.95,0.95);
 const materials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({ color: 0xff0000 }), // right  red
@@ -117,6 +117,7 @@ function animate(): void {requestAnimationFrame(animate);
     cube.rotation.x += 0.01;
     cube.rotation.y += 0.01;
     cube.rotation.z += 0.01;
+    cube.updateMatrix();
   }
   renderer.render(scene, camera);
 }
@@ -193,6 +194,7 @@ function rotatePieces(key: string, axis: string, degrees: number, inverseRegiste
     });
   });
 
+  // reflect the turn in the pieces list
   if (isRightTurn !== inverseRegister) {
     let tempA = pieces[numList[0]];
     let tempB = pieces[numList[1]];
@@ -285,13 +287,7 @@ function onKeyDown(event: KeyboardEvent): void {
       cube.rotation.x = 0;
       cube.rotation.y = 0;
       cube.rotation.z = 0;
-      break;
-    case "1":
-      cube.matrix.copy(new THREE.Matrix4(
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1));
+      cube.updateMatrix();
       break;
     case "p": // Pause animation
     case "P":
