@@ -27,7 +27,7 @@ const materials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({ color: 0x0000ff })  // back   blue
 ];
 
-let pieces: THREE.Mesh[][][] = [];
+let pieces: THREE.Mesh[] = [];
 
 function init(): void {
   scene = new THREE.Scene();
@@ -43,7 +43,7 @@ function init(): void {
   document.body.appendChild(renderer.domElement);
 
   createPieces();
-  cube = pieces[2][2][2];
+  cube = pieces[26];
 
   //controls.update() must be called after any manual changes to the camera's transform
   camera.position.set( 0, 0, 5 );
@@ -55,19 +55,30 @@ function init(): void {
 
 function createPieces(): void {
   for (let i = -1; i <= 1; i++) {
-    let piecesLayer:THREE.Mesh[][] = [];
     for (let j = -1; j <= 1; j++) {
-      let piecesRow: THREE.Mesh[] = [];
       for (let k = -1; k <= 1; k++) {
         let cube = createCube(k, j, i);
-        piecesRow.push(cube);
+        pieces.push(cube);
       }
-      piecesLayer.push(piecesRow);
     }
-    pieces.push(piecesLayer);
   }
 }
 
+// function createPieces(): void {
+//   for (let i = -1; i <= 1; i++) {
+//     let piecesLayer:THREE.Mesh[][] = [];
+//     for (let j = -1; j <= 1; j++) {
+//       let piecesRow: THREE.Mesh[] = [];
+//       for (let k = -1; k <= 1; k++) {
+//         let cube = createCube(k, j, i);
+//         piecesRow.push(cube);
+//       }
+//       piecesLayer.push(piecesRow);
+//     }
+//     pieces.push(piecesLayer);
+//   }
+// }
+//
 function createCube(x: number, y: number, z: number): THREE.Mesh {
   let cube: THREE.Mesh;
   cube = new THREE.Mesh(geometry, materials);
@@ -88,21 +99,24 @@ function animate(): void {requestAnimationFrame(animate);
 }
 
 function selectPieces(xf?: number, yf?: number, zf?: number): THREE.Mesh[] {
-  let result: THREE.Mesh[] = [];
-  for (let i = 0; i < pieces.length; i++) {
-    for (let j = 0; j < pieces[i].length; j++) {
-      for (let k = 0; k < pieces[i][j].length; k++) {
-        if ((k === zf || typeof zf === 'undefined') &&
-          (j === yf || typeof yf === 'undefined') &&
-          (i === xf || typeof xf === 'undefined')) {
-          let piece = pieces[k][j][i];
-          result.push(piece);
-        }
-      }
-    }
-  }
-  return result;
+  return pieces;
 }
+// function selectPieces(xf?: number, yf?: number, zf?: number): THREE.Mesh[] {
+//   let result: THREE.Mesh[] = [];
+//   for (let i = 0; i < pieces.length; i++) {
+//     for (let j = 0; j < pieces[i].length; j++) {
+//       for (let k = 0; k < pieces[i][j].length; k++) {
+//         if ((k === zf || typeof zf === 'undefined') &&
+//           (j === yf || typeof yf === 'undefined') &&
+//           (i === xf || typeof xf === 'undefined')) {
+//           let piece = pieces[k][j][i];
+//           result.push(piece);
+//         }
+//       }
+//     }
+//   }
+//   return result;
+// }
 
 function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
   let angle = degrees * Math.PI / 180;
@@ -129,7 +143,31 @@ function rotatePieces(key: string, pieces: THREE.Mesh[], axis: string, degrees: 
   if (key === key.toUpperCase()) {
     degrees = -degrees;
   }
-  pieces.forEach((piece, index) => {
+  // Rotate the pieces in the pieces array
+  type NumListsType = {
+    [key: string]: number[];
+  };
+
+  const numLists: NumListsType = {
+    "l": [0, 9, 18, 21, 24, 15, 6, 3, 12], 
+    "r": [26, 23, 20, 11, 2, 5, 8, 17, 14], 
+    "u": [6, 7, 8, 17, 26, 25, 24, 15, 16], 
+    "d": [18, 19, 20, 11, 2, 1, 0, 9, 10],
+    "f": [24, 21, 18, 19, 20, 23, 26, 25, 22],
+    "b": [0, 3, 6, 7, 8, 5, 2, 1, 4],
+    "m": [1, 4, 7, 16, 25, 22, 19, 10, 13], 
+    "e": [3, 4, 5, 14, 23, 22, 21, 12, 13], 
+    "s": [9, 10, 11, 14, 17, 16, 15, 12, 13] 
+  };
+
+  let numList: number[] = numLists[key.toLowerCase()];
+  if (typeof numList === 'undefined') {
+    console.log("Invalid key");
+    return;
+  }
+  let selectedPieces = numList.map((index) => pieces[index]);
+
+  selectedPieces.forEach((piece, index) => {
     const dummy =
       {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: degrees};
 
@@ -146,8 +184,7 @@ function rotatePieces(key: string, pieces: THREE.Mesh[], axis: string, degrees: 
     });
   });
 
-  // Rotate the pieces in the pieces array
-  let newPieces = [];
+
   for (let i = 0; i < pieces.length; i++) {
   }
 }
