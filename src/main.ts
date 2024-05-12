@@ -36,6 +36,10 @@ app.on('activate', () => {
   }
 });
 
-ipcMain.on('keydown', (event, key) => {
-  mainWindow?.webContents.send('keydown', key);
+// ipcMain.on('keydown', (event, key) => {
+//   mainWindow?.webContents.send('keydown', key);
+// });
+
+ipcMain.on('open-dev-tools', () => {
+  mainWindow?.webContents.openDevTools();
 });
