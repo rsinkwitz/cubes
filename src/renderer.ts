@@ -42,6 +42,11 @@ function init(): void {
   controls = new OrbitControls( camera, renderer.domElement );
   document.body.appendChild(renderer.domElement);
 
+  // Create an AxesHelper with a size of 2
+  const axesHelper = new THREE.AxesHelper(3);
+  // Add the AxesHelper to the scene
+  scene.add(axesHelper);
+
   createPieces();
   cube = pieces[26];
 
@@ -62,23 +67,9 @@ function createPieces(): void {
       }
     }
   }
+  updateCubeTextures();
 }
 
-// function createPieces(): void {
-//   for (let i = -1; i <= 1; i++) {
-//     let piecesLayer:THREE.Mesh[][] = [];
-//     for (let j = -1; j <= 1; j++) {
-//       let piecesRow: THREE.Mesh[] = [];
-//       for (let k = -1; k <= 1; k++) {
-//         let cube = createCube(k, j, i);
-//         piecesRow.push(cube);
-//       }
-//       piecesLayer.push(piecesRow);
-//     }
-//     pieces.push(piecesLayer);
-//   }
-// }
-//
 function createCube(x: number, y: number, z: number): THREE.Mesh {
   let cube: THREE.Mesh;
   cube = new THREE.Mesh(geometry, materials);
@@ -87,6 +78,38 @@ function createCube(x: number, y: number, z: number): THREE.Mesh {
   cube.updateMatrix();
   scene.add(cube);
   return cube;
+}
+
+function updateCubeTextures(): void {
+  return;
+  pieces.forEach((piece, index) => {
+    // Create a canvas and draw the index number on it
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.fillStyle = 'lightblue'; // Set the background color to light blue
+      context.fillRect(0, 0, canvas.width, canvas.height); // Fill the canvas with the background color
+
+      context.font = '32px Arial';
+      context.fillStyle = 'black'; // Set the text color to black
+      context.fillText(index.toString(), canvas.width / 2, canvas.height / 2);
+    }
+
+    // Create a texture from the canvas
+    const texture = new THREE.Texture(canvas);
+    texture.needsUpdate = true;
+
+    // Create a material using the texture
+    const material = new THREE.MeshBasicMaterial({ map: texture });
+
+    // Create an array of materials for each face of the cube
+    const materials = [
+      material, material, material, material, material, material
+    ];
+
+    // Update the cube's material
+    piece.material = materials;
+  });
 }
 
 function animate(): void {requestAnimationFrame(animate);
@@ -101,22 +124,6 @@ function animate(): void {requestAnimationFrame(animate);
 function selectPieces(xf?: number, yf?: number, zf?: number): THREE.Mesh[] {
   return pieces;
 }
-// function selectPieces(xf?: number, yf?: number, zf?: number): THREE.Mesh[] {
-//   let result: THREE.Mesh[] = [];
-//   for (let i = 0; i < pieces.length; i++) {
-//     for (let j = 0; j < pieces[i].length; j++) {
-//       for (let k = 0; k < pieces[i][j].length; k++) {
-//         if ((k === zf || typeof zf === 'undefined') &&
-//           (j === yf || typeof yf === 'undefined') &&
-//           (i === xf || typeof xf === 'undefined')) {
-//           let piece = pieces[k][j][i];
-//           result.push(piece);
-//         }
-//       }
-//     }
-//   }
-//   return result;
-// }
 
 function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
   let angle = degrees * Math.PI / 180;
@@ -139,9 +146,11 @@ function setColors(pieces: THREE.Mesh[], colors: number[]): void {
   });
 }
 
-function rotatePieces(key: string, pieces: THREE.Mesh[], axis: string, degrees: number): void {
+function rotatePieces(key: string, axis: string, degrees: number, inverseRegister: boolean = false): void {
+  var isRightTurn = true;
   if (key === key.toUpperCase()) {
     degrees = -degrees;
+    isRightTurn = false;
   }
   // Rotate the pieces in the pieces array
   type NumListsType = {
@@ -184,9 +193,26 @@ function rotatePieces(key: string, pieces: THREE.Mesh[], axis: string, degrees: 
     });
   });
 
-
-  for (let i = 0; i < pieces.length; i++) {
+  if (isRightTurn !== inverseRegister) {
+    let tempA = pieces[numList[0]];
+    let tempB = pieces[numList[1]];
+    for (let i = 0; i <= 5; i++) {
+      pieces[numList[i]] = pieces[numList[i + 2]];
+    }
+    pieces[numList[6]] = tempA;
+    pieces[numList[7]] = tempB;
+  } else {
+    let tempA = pieces[numList[7]];
+    let tempB = pieces[numList[6]];
+    for (let i = 5; i >= 0; i--) {
+      pieces[numList[i + 2]] = pieces[numList[i]];
+    }
+    pieces[numList[1]] = tempA;
+    pieces[numList[0]] = tempB;
   }
+
+  // Update the cube textures after rotating the pieces
+  updateCubeTextures();
 }
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -200,41 +226,41 @@ function onKeyDown(event: KeyboardEvent): void {
 
     case "l":
     case "L":
-      rotatePieces(event.key, selectPieces(0), "x", 90);
+      rotatePieces(event.key, "x", 90);
       break;
     case "m":
     case "M":
-      rotatePieces(event.key, selectPieces(1), "x", 90);
+      rotatePieces(event.key, "x", 90);
       break;
     case "r":
     case "R":
-      rotatePieces(event.key, selectPieces(2), "x", -90);
+      rotatePieces(event.key, "x", -90);
       break;
 
     case "u":
     case "U":
-      rotatePieces(event.key, selectPieces(undefined, 2), "y", -90);
+      rotatePieces(event.key, "y", -90, true);
       break;
     case "e":
     case "E":
-      rotatePieces(event.key, selectPieces(undefined, 1), "y", 90);
+      rotatePieces(event.key, "y", 90, true);
       break;
     case "d":
     case "D":
-      rotatePieces(event.key, selectPieces(undefined, 0), "y", 90);
+      rotatePieces(event.key, "y", 90, true);
       break;
 
     case "b":
     case "B":
-      rotatePieces(event.key, selectPieces(undefined, undefined, 0), "z", 90);
+      rotatePieces(event.key, "z", 90);
       break;
     case "s":
     case "S":
-      rotatePieces(event.key, selectPieces(undefined, undefined, 1), "z", -90);
+      rotatePieces(event.key, "z", -90);
       break;
     case "f":
     case "F":
-      rotatePieces(event.key, selectPieces(undefined, undefined, 2), "z", -90);
+      rotatePieces(event.key, "z", -90);
       break;
 
     case "ArrowUp":
