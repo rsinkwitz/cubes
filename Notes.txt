@@ -5,3 +5,6 @@ npm install electron@latest typescript @types/three
 npm install webpack webpack-cli webpack-dev-server --save-dev
 npm install babel-loader @babel/core @babel/preset-env --save-dev
 npm install --save-dev ts-loader
+
+
+https://ruwix.com/the-rubiks-cube/notation/

@@ -105,32 +105,17 @@ function selectPieces(xf?: number, yf?: number, zf?: number): THREE.Mesh[] {
 }
 
 function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
-  // set up rotation matrix
   let angle = degrees * Math.PI / 180;
   switch (axis) {
     case "x":
       return new THREE.Matrix4().makeRotationX(angle);
-      break;
     case "y":
       return new THREE.Matrix4().makeRotationY(angle);
-      break;
     case "z":
       return new THREE.Matrix4().makeRotationZ(angle);
-      break;
     default:
       return new THREE.Matrix4();
   }
-}
-
-function rotatePieces(pieces: THREE.Mesh[], axis: string, degrees: number): void {
-  // apply rotation to each piece
-  pieces.forEach((piece) => {
-    // piece.applyMatrix4(getRotationMatrix(axis, 45));
-        let rotMatrix = getRotationMatrix(axis, degrees);
-        let destMat = piece.matrix.clone().multiply(rotMatrix);
-        piece.matrix.copy(destMat);
-        piece.matrixWorldNeedsUpdate = true;
-  });
 }
 
 // function to set colors of pieces
@@ -140,19 +125,18 @@ function setColors(pieces: THREE.Mesh[], colors: number[]): void {
   });
 }
 
-function rotatePieces3(pieces: THREE.Mesh[], axis: string, degrees: number): void {
+function rotatePieces(key: string, pieces: THREE.Mesh[], axis: string, degrees: number): void {
+  if (key === key.toUpperCase()) {
+    degrees = -degrees;
+  }
   pieces.forEach((piece, index) => {
-
-    let tl = gsap.timeline();
-
-    // Create a dummy object for this group
     const dummy =
       {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: degrees};
 
-    // Add an animation to the timeline
+    let tl = gsap.timeline();
     tl.to(dummy, {
       lerpFactor: 1,
-      duration: 1,
+      duration: 0.5,
       ease: "linear",
       onUpdate: () => {
         dummy.piece.matrix.copy(dummy.startMatrix); // Reset the matrix to the start matrix (undo previous rotations)
@@ -161,89 +145,61 @@ function rotatePieces3(pieces: THREE.Mesh[], axis: string, degrees: number): voi
       }
     });
   });
-}
 
-
-function getQuaternion(axis: string, forward: boolean): THREE.Quaternion {
-  // set up rotation angle
-  let angle = Math.PI / 4;
-  if (!forward) {
-    angle = -angle;
+  // Rotate the pieces in the pieces array
+  let newPieces = [];
+  for (let i = 0; i < pieces.length; i++) {
   }
-  let quaternion: THREE.Quaternion;
-  switch (axis) {
-    case "x":
-      quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
-      break;
-    case "y":
-      quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-      break;
-    case "z":
-      quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle);
-      break;
-    default:
-      quaternion = new THREE.Quaternion();
-  }
-  return quaternion;
-}
-
-function tlTest(pieces: THREE.Mesh[]): void {
-  // Create a group and add all pieces to it
-  const group = new THREE.Group();
-  pieces.forEach(piece => group.add(piece));
-
-  // Add the group to the scene
-  scene.add(group);
-
-  // Initialize the startQuaternion with the current orientation of the first piece
-  let startQuaternion = pieces[0].quaternion.clone();
-  let targetQuaternion = getQuaternion("x", true);
-
-  let tl = gsap.timeline();
-
-  // Create a dummy object for this group
-  const dummy = { lerpFactor: 0 };
-
-  // Add an animation to the timeline
-  tl.to(dummy, {
-    lerpFactor: 1,
-    duration: 1,
-    ease: "linear",
-    onUpdate: () => {
-      // On each update, interpolate between the start quaternion and the target quaternion
-      group.quaternion.copy(startQuaternion).slerp(targetQuaternion, dummy.lerpFactor);
-      group.updateMatrixWorld(true);
-    },
-    onComplete: () => {
-      // At the end of the animation, update the startQuaternion to be the final orientation of the group
-      startQuaternion.copy(group.quaternion);
-
-      // Update the pieces' matrices to reflect the final transformation of the group
-      pieces.forEach(piece => {
-        piece.matrixWorld.decompose(piece.position, piece.quaternion, piece.scale);
-        scene.add(piece); // Add the piece back to the scene
-      });
-
-      // Remove the group from the scene
-      scene.remove(group);
-    }
-  });
 }
 
 function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
-    case "d":
+    case "F12":
       window.ipcRenderer.send('open-dev-tools');
       break;
-    case "s":
+    case "c":
       setColors(selectPieces(undefined,0), [0x808080]);
       break;
+
+    case "l":
+    case "L":
+      rotatePieces(event.key, selectPieces(0), "x", 90);
+      break;
+    case "m":
+    case "M":
+      rotatePieces(event.key, selectPieces(1), "x", 90);
+      break;
     case "r":
-      rotatePieces(selectPieces(2), "x", 45);
+    case "R":
+      rotatePieces(event.key, selectPieces(2), "x", -90);
       break;
-    case "t":
-      rotatePieces3(selectPieces(2), "x", 90);
+
+    case "u":
+    case "U":
+      rotatePieces(event.key, selectPieces(undefined, 2), "y", -90);
       break;
+    case "e":
+    case "E":
+      rotatePieces(event.key, selectPieces(undefined, 1), "y", 90);
+      break;
+    case "d":
+    case "D":
+      rotatePieces(event.key, selectPieces(undefined, 0), "y", 90);
+      break;
+
+    case "b":
+    case "B":
+      rotatePieces(event.key, selectPieces(undefined, undefined, 0), "z", 90);
+      break;
+    case "s":
+    case "S":
+      rotatePieces(event.key, selectPieces(undefined, undefined, 1), "z", -90);
+      break;
+    case "f":
+    case "F":
+      rotatePieces(event.key, selectPieces(undefined, undefined, 2), "z", -90);
+      break;
+
     case "ArrowUp":
       cube.rotation.x += 0.1;
       break;
