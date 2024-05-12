@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls";
+import gsap from "gsap";
 
 declare global {
   interface Window {
@@ -68,9 +69,16 @@ function createPieces(): void {
 }
 
 function createCube(x: number, y: number, z: number): THREE.Mesh {
-  var cube: THREE.Mesh;
+  let cube: THREE.Mesh;
   cube = new THREE.Mesh(geometry, materials);
-  cube.position.set(x, y, z);
+
+  // Create a translation matrix for the initial position
+  const translationMatrix = new THREE.Matrix4().makeTranslation(x, y, z);
+
+  // Apply the translation matrix to the cube's matrix
+  cube.matrix.multiply(translationMatrix);
+
+  cube.matrixAutoUpdate = false;
   scene.add(cube);
   return cube;
 }
@@ -84,19 +92,135 @@ function animate(): void {requestAnimationFrame(animate);
   renderer.render(scene, camera);
 }
 
-function selectPieces(xf?: number, yf?: number, zf?: number): void {
+function selectPieces(xf?: number, yf?: number, zf?: number): THREE.Mesh[] {
+  let result: THREE.Mesh[] = [];
   for (let i = 0; i < pieces.length; i++) {
     for (let j = 0; j < pieces[i].length; j++) {
       for (let k = 0; k < pieces[i][j].length; k++) {
-        let piece = pieces[k][j][i];
-        if ((k === xf || typeof k === 'undefined') &&
-          (j === yf || typeof j === 'undefined') &&
-          (i === zf || typeof i === 'undefined')) {
-          piece.material = new THREE.MeshBasicMaterial({color: 0x000000});
+        if ((k === zf || typeof zf === 'undefined') &&
+          (j === yf || typeof yf === 'undefined') &&
+          (i === xf || typeof xf === 'undefined')) {
+          let piece = pieces[k][j][i];
+          result.push(piece);
         }
       }
     }
   }
+  return result;
+}
+
+function getRotationMatrix(axis: string, forward: boolean): THREE.Matrix4 {
+  // set up rotation matrix
+  let angle = Math.PI / 4;
+  if (!forward) {
+    angle = -angle;
+  }
+  let rotationMatrix: THREE.Matrix4;
+  switch (axis) {
+    case "x":
+      return new THREE.Matrix4().makeRotationX(angle);
+      break;
+    case "y":
+      return new THREE.Matrix4().makeRotationY(angle);
+      break;
+    case "z":
+      return new THREE.Matrix4().makeRotationZ(angle);
+      break;
+    default:
+      return new THREE.Matrix4();
+  }
+}
+
+function rotatePieces(pieces: THREE.Mesh[], axis: string, forward: boolean): void {
+  let quaternion = getQuaternion(axis, forward);
+
+  // Create a group and add all pieces to it
+  const group = new THREE.Group();
+  pieces.forEach(piece => group.add(piece));
+
+  // Add the group to the scene
+  scene.add(group);
+
+  // Apply rotation to the group
+  group.quaternion.multiply(quaternion);
+  group.updateMatrixWorld(true); // Update the group's matrix
+
+  // Remove the group from the scene and add back the individual pieces
+  scene.remove(group);
+  pieces.forEach(piece => scene.add(piece));
+}
+
+// function to set colors of pieces
+function setColors(pieces: THREE.Mesh[], colors: number[]): void {
+  pieces.forEach((piece, index) => {
+    piece.material = new THREE.MeshBasicMaterial({color: colors[index]});
+  });
+}
+
+function getQuaternion(axis: string, forward: boolean): THREE.Quaternion {
+  // set up rotation angle
+  let angle = Math.PI / 4;
+  if (!forward) {
+    angle = -angle;
+  }
+  let quaternion: THREE.Quaternion;
+  switch (axis) {
+    case "x":
+      quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
+      break;
+    case "y":
+      quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+      break;
+    case "z":
+      quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle);
+      break;
+    default:
+      quaternion = new THREE.Quaternion();
+  }
+  return quaternion;
+}
+
+function tlTest(pieces: THREE.Mesh[]): void {
+  // Create a group and add all pieces to it
+  const group = new THREE.Group();
+  pieces.forEach(piece => group.add(piece));
+
+  // Add the group to the scene
+  scene.add(group);
+
+  // Initialize the startQuaternion with the current orientation of the first piece
+  let startQuaternion = pieces[0].quaternion.clone();
+  let targetQuaternion = getQuaternion("x", true);
+
+  let tl = gsap.timeline();
+
+  // Create a dummy object for this group
+  const dummy = { lerpFactor: 0 };
+
+  // Add an animation to the timeline
+  tl.to(dummy, {
+    lerpFactor: 1,
+    duration: 1,
+    ease: "linear",
+    onUpdate: () => {
+      // On each update, interpolate between the start quaternion and the target quaternion
+      group.quaternion.copy(startQuaternion).slerp(targetQuaternion, dummy.lerpFactor);
+      group.updateMatrixWorld(true);
+    },
+    onComplete: () => {
+      // At the end of the animation, update the startQuaternion to be the final orientation of the group
+      startQuaternion.copy(group.quaternion);
+
+      // Update the pieces' matrices to reflect the final transformation of the group
+      pieces.forEach(piece => {
+        piece.matrixWorld.decompose(piece.position, piece.quaternion, piece.scale);
+        scene.add(piece); // Add the piece back to the scene
+      });
+
+      // Remove the group from the scene
+      scene.remove(group);
+    }
+  });
 }
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -105,7 +229,13 @@ function onKeyDown(event: KeyboardEvent): void {
       window.ipcRenderer.send('open-dev-tools');
       break;
     case "s":
-      selectPieces(-1, undefined, undefined);
+      setColors(selectPieces(undefined,0), [0x808080]);
+      break;
+    case "r":
+      rotatePieces(selectPieces(2), "x", true);
+      break;
+    case "t":
+      tlTest(selectPieces(2));
       break;
     case "ArrowUp":
       cube.rotation.x += 0.1;
@@ -125,7 +255,7 @@ function onKeyDown(event: KeyboardEvent): void {
     case "Z":
       cube.rotation.z -= 0.1;
       break;
-    case "r":
+    case "0":
       cube.rotation.x = 0;
       cube.rotation.y = 0;
       cube.rotation.z = 0;

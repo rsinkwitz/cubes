@@ -3,7 +3,9 @@
     "target": "ES5",
     "module": "commonjs",
     "outDir": "dist",
-    "strict": true
+    "strict": true,
+    "inlineSources": true,
+    "sourceMap": true
   },
   "include": [
     "src/**/*",
