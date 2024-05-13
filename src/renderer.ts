@@ -17,6 +17,7 @@ let controls : OrbitControls;
 let renderer: THREE.WebGLRenderer;
 let cube: THREE.Mesh;
 let animationPaused: boolean = true;
+let showNumbers: boolean = false;
 const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95,0.95,0.95);
 const materials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({ color: 0xff0000 }), // right  red
@@ -81,7 +82,9 @@ function createCube(x: number, y: number, z: number): THREE.Mesh {
 }
 
 function updateCubeTextures(): void {
-  return;
+  if (!showNumbers) {
+    return;
+  }
   pieces.forEach((piece, index) => {
     // Create a canvas and draw the index number on it
     const canvas = document.createElement('canvas');
@@ -148,16 +151,15 @@ function setColors(pieces: THREE.Mesh[], colors: number[]): void {
 }
 
 function rotatePieces(key: string, axis: string, degrees: number, inverseRegister: boolean = false): void {
-  var isRightTurn = true;
+  let isRightTurn = true;
   if (key === key.toUpperCase()) {
     degrees = -degrees;
     isRightTurn = false;
   }
-  // Rotate the pieces in the pieces array
+
   type NumListsType = {
     [key: string]: number[];
   };
-
   const numLists: NumListsType = {
     "l": [0, 9, 18, 21, 24, 15, 6, 3, 12], 
     "r": [26, 23, 20, 11, 2, 5, 8, 17, 14], 
@@ -175,18 +177,15 @@ function rotatePieces(key: string, axis: string, degrees: number, inverseRegiste
     console.log("Invalid key");
     return;
   }
-  let selectedPieces = numList.map((index) => pieces[index]);
 
+  // Rotate the selected pieces
+  let selectedPieces = numList.map((index) => pieces[index]);
   selectedPieces.forEach((piece, index) => {
     const dummy =
       {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: degrees};
 
     let tl = gsap.timeline();
-    tl.to(dummy, {
-      lerpFactor: 1,
-      duration: 0.5,
-      ease: "linear",
-      onUpdate: () => {
+    tl.to(dummy, {lerpFactor: 1, duration: 0.5, ease: "linear", onUpdate: () => {
         dummy.piece.matrix.copy(dummy.startMatrix); // Reset the matrix to the start matrix (undo previous rotations)
         piece.applyMatrix4(getRotationMatrix(axis, dummy.lerpFactor * dummy.degrees));
         piece.matrixWorldNeedsUpdate = true;
@@ -194,8 +193,13 @@ function rotatePieces(key: string, axis: string, degrees: number, inverseRegiste
     });
   });
 
+  rotateModel(numList, isRightTurn !== inverseRegister);
+  updateCubeTextures();
+}
+
+function rotateModel(numList: number[], rightTurn: boolean): void {
   // reflect the turn in the pieces list
-  if (isRightTurn !== inverseRegister) {
+  if (rightTurn) {
     let tempA = pieces[numList[0]];
     let tempB = pieces[numList[1]];
     for (let i = 0; i <= 5; i++) {
@@ -212,9 +216,6 @@ function rotatePieces(key: string, axis: string, degrees: number, inverseRegiste
     pieces[numList[1]] = tempA;
     pieces[numList[0]] = tempB;
   }
-
-  // Update the cube textures after rotating the pieces
-  updateCubeTextures();
 }
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -292,6 +293,11 @@ function onKeyDown(event: KeyboardEvent): void {
     case "p": // Pause animation
     case "P":
       animationPaused = !animationPaused;
+      break;
+    case "n": // Pause animation
+    case "N":
+      showNumbers = !showNumbers;
+      updateCubeTextures();
       break;
     default:
       break;
