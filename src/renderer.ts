@@ -19,6 +19,8 @@ let cube: THREE.Mesh;
 let animationPaused: boolean = true;
 let showNumbers: boolean = false;
 let showAxes: boolean = false;
+let isHideNext: boolean = false;
+let numRotAnims: number = 0;
 
 const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95,0.95,0.95);
 const materials: THREE.MeshBasicMaterial[] = [
@@ -90,10 +92,12 @@ function createCube(x: number, y: number, z: number): THREE.Mesh {
 }
 
 function updateCubeTextures(): void {
-  if (!showNumbers) {
-    return;
-  }
   pieces.forEach((piece, index) => {
+    if (!showNumbers) {
+      piece.material = materials;
+      return;
+    }
+
     // Create a canvas and draw the index number on it
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -111,15 +115,15 @@ function updateCubeTextures(): void {
     texture.needsUpdate = true;
 
     // Create a material using the texture
-    const material = new THREE.MeshBasicMaterial({ map: texture });
+    const numberedMaterial = new THREE.MeshBasicMaterial({map: texture});
 
     // Create an array of materials for each face of the cube
-    const materials = [
-      material, material, material, material, material, material
+    const NumberedMaterials = [
+      numberedMaterial, numberedMaterial, numberedMaterial, numberedMaterial, numberedMaterial, numberedMaterial
     ];
 
     // Update the cube's material
-    piece.material = materials;
+    piece.material = NumberedMaterials;
   });
 }
 
@@ -154,54 +158,110 @@ function setColors(colors: number[]): void {
   });
 }
 
-function rotatePieces(key: string, axis: string, degrees: number, inverseRegister: boolean = false): void {
-  let isRightTurn = true;
+interface rotOpsParamType {axis: string; degrees: number; forward: boolean; nums: number[]}
+interface rotOpsParamMapType {
+  [key: string]: rotOpsParamType;
+}
+
+function toggleHideObjects(objects: THREE.Mesh[]): void {
+  objects.forEach((object) => {
+    object.visible = !object.visible;
+  });
+}
+
+function getRotOpsData(key: string): rotOpsParamType {
+  let data: rotOpsParamMapType = {
+    "l": {axis: "x", degrees: 90, forward: true, nums: [0, 9, 18, 21, 24, 15, 6, 3, 12]},
+    "m": {axis: "x", degrees: 90, forward: false, nums: [1, 4, 7, 16, 25, 22, 19, 10, 13]},
+    "r": {axis: "x", degrees: -90, forward: true, nums: [26, 23, 20, 11, 2, 5, 8, 17, 14]},
+    "u": {axis: "y", degrees: -90, forward: false, nums: [6, 7, 8, 17, 26, 25, 24, 15, 16]},
+    "e": {axis: "y", degrees: 90, forward: false, nums: [3, 12, 21, 22, 23, 14, 5, 4, 13]},
+    "d": {axis: "y", degrees: 90, forward: false, nums: [18, 19, 20, 11, 2, 1, 0, 9, 10]},
+    "b": {axis: "z", degrees: 90, forward: true, nums: [0, 3, 6, 7, 8, 5, 2, 1, 4]},
+    "s": {axis: "z", degrees: -90, forward: true, nums: [9, 10, 11, 14, 17, 16, 15, 12, 13]},
+    "f": {axis: "z", degrees: -90, forward: true, nums: [24, 21, 18, 19, 20, 23, 26, 25, 22]},
+    "x": {axis: "x", degrees: -90, forward: true, nums: []},
+    "y": {axis: "y", degrees: -90, forward: true, nums: []},
+    "z": {axis: "z", degrees: -90, forward: true, nums: []}
+  };
+  return data[key];
+}
+
+function rotatePieces(key: string): void {
+  if (numRotAnims > 0) {
+    return;
+  }
+  let {axis, degrees, forward, nums} = getRotOpsData(key.toLowerCase());
+  let isRightTurn: boolean = true;
   if (key === key.toUpperCase()) {
     degrees = -degrees;
     isRightTurn = false;
   }
 
-  type NumListsType = {
-    [key: string]: number[];
-  };
-  const numLists: NumListsType = {
-    "l": [0, 9, 18, 21, 24, 15, 6, 3, 12], 
-    "r": [26, 23, 20, 11, 2, 5, 8, 17, 14], 
-    "u": [6, 7, 8, 17, 26, 25, 24, 15, 16], 
-    "d": [18, 19, 20, 11, 2, 1, 0, 9, 10],
-    "f": [24, 21, 18, 19, 20, 23, 26, 25, 22],
-    "b": [0, 3, 6, 7, 8, 5, 2, 1, 4],
-    "m": [1, 4, 7, 16, 25, 22, 19, 10, 13], 
-    "e": [3, 4, 5, 14, 23, 22, 21, 12, 13], 
-    "s": [9, 10, 11, 14, 17, 16, 15, 12, 13] 
-  };
+  let numList: number[]; // List of piece indices to rotate
+  let selectedPieces: THREE.Mesh[] = []; // List of pieces to rotate
+  switch (key.toLowerCase()) {
+    case "x":
+      selectedPieces = pieces;
+      rotateModelLayerByKey("l", !isRightTurn);
+      rotateModelLayerByKey("m", !isRightTurn);
+      rotateModelLayerByKey("r", isRightTurn);
+      break;
+    case "y":
+      selectedPieces = pieces;
+      rotateModelLayerByKey("u", isRightTurn);
+      rotateModelLayerByKey("e", !isRightTurn);
+      rotateModelLayerByKey("d", !isRightTurn);
+      break;
+    case "z":
+      selectedPieces = pieces;
+      rotateModelLayerByKey("f", isRightTurn);
+      rotateModelLayerByKey("s", isRightTurn);
+      rotateModelLayerByKey("b", !isRightTurn);
+      break;
+    default:
+      rotateModelLayer(nums, isRightTurn === forward);
+      selectedPieces = nums.map((index) => pieces[index]);
+  }
 
-  let numList: number[] = numLists[key.toLowerCase()];
-  if (typeof numList === 'undefined') {
-    console.log("Invalid key");
+  if (isHideNext) {
+    isHideNext = false;
+    toggleHideObjects(selectedPieces);
     return;
   }
 
   // Rotate the selected pieces
-  let selectedPieces = numList.map((index) => pieces[index]);
   selectedPieces.forEach((piece) => {
     const dummy =
       {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: degrees};
 
     let tl = gsap.timeline();
-    tl.to(dummy, {lerpFactor: 1, duration: 0.5, ease: "linear", onUpdate: () => {
+    numRotAnims++;
+    tl.to(dummy, {
+      lerpFactor: 1, duration: 0.5, ease: "linear",
+      onUpdate: () => {
         dummy.piece.matrix.copy(dummy.startMatrix); // Reset the matrix to the start matrix (undo previous rotations)
         piece.applyMatrix4(getRotationMatrix(axis, dummy.lerpFactor * dummy.degrees));
         piece.matrixWorldNeedsUpdate = true;
+      },
+      onComplete: () => {
+        numRotAnims--;
+        if (numRotAnims === 0) {
+          updateCubeTextures();
+        }
       }
     });
   });
 
-  rotateModel(numList, isRightTurn !== inverseRegister);
-  updateCubeTextures();
+  // updateCubeTextures();
 }
 
-function rotateModel(numList: number[], rightTurn: boolean): void {
+function rotateModelLayerByKey(key: string, rightTurn: boolean): void {
+  let {axis, degrees, forward, nums} = getRotOpsData(key.toLowerCase());
+  rotateModelLayer(nums, rightTurn === forward);
+}
+
+function rotateModelLayer(numList: number[], rightTurn: boolean): void {
   // reflect the turn in the pieces list
   if (rightTurn) {
     let tempA = pieces[numList[0]];
@@ -236,41 +296,29 @@ function onKeyDown(event: KeyboardEvent): void {
 
     case "l":
     case "L":
-      rotatePieces(event.key, "x", 90);
-      break;
     case "m":
     case "M":
-      rotatePieces(event.key, "x", 90);
-      break;
     case "r":
     case "R":
-      rotatePieces(event.key, "x", -90);
-      break;
-
     case "u":
     case "U":
-      rotatePieces(event.key, "y", -90, true);
-      break;
     case "e":
     case "E":
-      rotatePieces(event.key, "y", 90, true);
-      break;
     case "d":
     case "D":
-      rotatePieces(event.key, "y", 90, true);
-      break;
-
     case "b":
     case "B":
-      rotatePieces(event.key, "z", 90);
-      break;
     case "s":
     case "S":
-      rotatePieces(event.key, "z", -90);
-      break;
     case "f":
     case "F":
-      rotatePieces(event.key, "z", -90);
+    case "x":
+    case "X":
+    case "y":
+    case "Y":
+    case "z":
+    case "Z":
+      rotatePieces(event.key);
       break;
 
     case "ArrowUp":
@@ -305,6 +353,10 @@ function onKeyDown(event: KeyboardEvent): void {
     case "N":
       showNumbers = !showNumbers;
       updateCubeTextures();
+      break;
+    case "h":
+    case "H":
+      isHideNext = true;
       break;
     default:
       break;
