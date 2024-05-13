@@ -18,6 +18,8 @@ let renderer: THREE.WebGLRenderer;
 let cube: THREE.Mesh;
 let animationPaused: boolean = true;
 let showNumbers: boolean = false;
+let showAxes: boolean = false;
+
 const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95,0.95,0.95);
 const materials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({ color: 0xff0000 }), // right  red
@@ -43,20 +45,26 @@ function init(): void {
   controls = new OrbitControls( camera, renderer.domElement );
   document.body.appendChild(renderer.domElement);
 
-  // Create an AxesHelper with a size of 2
   const axesHelper = new THREE.AxesHelper(3);
-  // Add the AxesHelper to the scene
+  axesHelper.visible = showAxes;
   scene.add(axesHelper);
 
   createPieces();
   cube = pieces[26];
 
-  //controls.update() must be called after any manual changes to the camera's transform
   camera.position.set( 0, 0, 5 );
   controls.update();
 
   animate(); // Always start the animation loop
- // renderer.render(scene, camera);
+}
+
+function toggleAxes(): void {
+  showAxes = !showAxes;
+  scene.children.forEach((child) => {
+    if (child instanceof THREE.AxesHelper) {
+      child.visible = showAxes;
+    }
+  });
 }
 
 function createPieces(): void {
@@ -93,7 +101,7 @@ function updateCubeTextures(): void {
       context.fillStyle = 'lightblue'; // Set the background color to light blue
       context.fillRect(0, 0, canvas.width, canvas.height); // Fill the canvas with the background color
 
-      context.font = '32px Arial';
+      context.font = '64px Arial';
       context.fillStyle = 'black'; // Set the text color to black
       context.fillText(index.toString(), canvas.width / 2, canvas.height / 2);
     }
@@ -125,10 +133,6 @@ function animate(): void {requestAnimationFrame(animate);
   renderer.render(scene, camera);
 }
 
-function selectPieces(xf?: number, yf?: number, zf?: number): THREE.Mesh[] {
-  return pieces;
-}
-
 function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
   let angle = degrees * Math.PI / 180;
   switch (axis) {
@@ -144,7 +148,7 @@ function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
 }
 
 // function to set colors of pieces
-function setColors(pieces: THREE.Mesh[], colors: number[]): void {
+function setColors(colors: number[]): void {
   pieces.forEach((piece, index) => {
     piece.material = new THREE.MeshBasicMaterial({color: colors[index]});
   });
@@ -180,7 +184,7 @@ function rotatePieces(key: string, axis: string, degrees: number, inverseRegiste
 
   // Rotate the selected pieces
   let selectedPieces = numList.map((index) => pieces[index]);
-  selectedPieces.forEach((piece, index) => {
+  selectedPieces.forEach((piece) => {
     const dummy =
       {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: degrees};
 
@@ -223,8 +227,11 @@ function onKeyDown(event: KeyboardEvent): void {
     case "F12":
       window.ipcRenderer.send('open-dev-tools');
       break;
+    case "a":
+      toggleAxes();
+      break;
     case "c":
-      setColors(selectPieces(undefined,0), [0x808080]);
+      setColors( [0x808080]);
       break;
 
     case "l":
