@@ -69,6 +69,16 @@ function toggleAxes(): void {
   });
 }
 
+function createCube(x: number, y: number, z: number): THREE.Mesh {
+  let cube: THREE.Mesh;
+  cube = new THREE.Mesh(geometry, materials);
+  cube.matrixAutoUpdate = false;
+  cube.position.set(x, y, z);
+  cube.updateMatrix();
+  scene.add(cube);
+  return cube;
+}
+
 function createPieces(): void {
   for (let i = -1; i <= 1; i++) {
     for (let j = -1; j <= 1; j++) {
@@ -79,16 +89,6 @@ function createPieces(): void {
     }
   }
   updateCubeTextures();
-}
-
-function createCube(x: number, y: number, z: number): THREE.Mesh {
-  let cube: THREE.Mesh;
-  cube = new THREE.Mesh(geometry, materials);
-  cube.matrixAutoUpdate = false;
-  cube.position.set(x, y, z);
-  cube.updateMatrix();
-  scene.add(cube);
-  return cube;
 }
 
 function updateCubeTextures(): void {
@@ -158,15 +158,15 @@ function setColors(colors: number[]): void {
   });
 }
 
-interface rotOpsParamType {axis: string; degrees: number; forward: boolean; nums: number[]}
-interface rotOpsParamMapType {
-  [key: string]: rotOpsParamType;
-}
-
 function toggleHideObjects(objects: THREE.Mesh[]): void {
   objects.forEach((object) => {
     object.visible = !object.visible;
   });
+}
+
+interface rotOpsParamType {axis: string; degrees: number; forward: boolean; nums: number[]}
+interface rotOpsParamMapType {
+  [key: string]: rotOpsParamType;
 }
 
 function getRotOpsData(key: string): rotOpsParamType {
@@ -246,14 +246,14 @@ function rotatePieces(key: string): void {
       },
       onComplete: () => {
         numRotAnims--;
-        if (numRotAnims === 0) {
-          updateCubeTextures();
-        }
+        // if (numRotAnims === 0) {
+        //   updateCubeTextures();
+        // }
       }
     });
   });
 
-  // updateCubeTextures();
+  updateCubeTextures();
 }
 
 function rotateModelLayerByKey(key: string, rightTurn: boolean): void {
