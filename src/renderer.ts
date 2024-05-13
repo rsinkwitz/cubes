@@ -192,47 +192,43 @@ function rotatePieces(key: string): void {
     return;
   }
   let {axis, degrees, forward, nums} = getRotOpsData(key.toLowerCase());
-  let isRightTurn: boolean = true;
-  if (key === key.toUpperCase()) {
-    degrees = -degrees;
-    isRightTurn = false;
-  }
-
   if (isHideNext) {
-    isHideNext = false;
     toggleHideObjects(nums.map((index) => pieces[index]));
+    isHideNext = false;
     return;
   }
+
+  let keyLc: boolean = key === key.toLowerCase();
 
   let selectedPieces: THREE.Mesh[] = []; // List of pieces to rotate
   switch (key.toLowerCase()) {
     case "x":
       selectedPieces = pieces;
-      rotateModelLayerByKey("l", !isRightTurn);
-      rotateModelLayerByKey("m", !isRightTurn);
-      rotateModelLayerByKey("r", isRightTurn);
+      rotateCubeModelByKey("l", !keyLc);
+      rotateCubeModelByKey("m", !keyLc);
+      rotateCubeModelByKey("r", keyLc);
       break;
     case "y":
       selectedPieces = pieces;
-      rotateModelLayerByKey("u", isRightTurn);
-      rotateModelLayerByKey("e", !isRightTurn);
-      rotateModelLayerByKey("d", !isRightTurn);
+      rotateCubeModelByKey("u", keyLc);
+      rotateCubeModelByKey("e", !keyLc);
+      rotateCubeModelByKey("d", !keyLc);
       break;
     case "z":
       selectedPieces = pieces;
-      rotateModelLayerByKey("f", isRightTurn);
-      rotateModelLayerByKey("s", isRightTurn);
-      rotateModelLayerByKey("b", !isRightTurn);
+      rotateCubeModelByKey("f", keyLc);
+      rotateCubeModelByKey("s", keyLc);
+      rotateCubeModelByKey("b", !keyLc);
       break;
     default:
-      rotateModelLayer(nums, isRightTurn === forward);
+      rotateCubeModel(nums, keyLc === forward);
       selectedPieces = nums.map((index) => pieces[index]);
   }
 
   // Rotate the selected pieces
   selectedPieces.forEach((piece) => {
     const dummy =
-      {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: degrees};
+      {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: keyLc ? degrees : -degrees};
 
     let tl = gsap.timeline();
     numRotAnims++;
@@ -245,39 +241,35 @@ function rotatePieces(key: string): void {
       },
       onComplete: () => {
         numRotAnims--;
-        // if (numRotAnims === 0) {
-        //   updateCubeTextures();
-        // }
       }
     });
   });
-
   updateCubeTextures();
 }
 
-function rotateModelLayerByKey(key: string, rightTurn: boolean): void {
+function rotateCubeModelByKey(key: string, keyLc: boolean): void {
   let {axis, degrees, forward, nums} = getRotOpsData(key.toLowerCase());
-  rotateModelLayer(nums, rightTurn === forward);
+  rotateCubeModel(nums, keyLc === forward);
 }
 
-function rotateModelLayer(numList: number[], rightTurn: boolean): void {
+function rotateCubeModel(nums: number[], rightRotate: boolean): void {
   // reflect the turn in the pieces list
-  if (rightTurn) {
-    let tempA = pieces[numList[0]];
-    let tempB = pieces[numList[1]];
+  if (rightRotate) {
+    let tempA = pieces[nums[0]];
+    let tempB = pieces[nums[1]];
     for (let i = 0; i <= 5; i++) {
-      pieces[numList[i]] = pieces[numList[i + 2]];
+      pieces[nums[i]] = pieces[nums[i + 2]];
     }
-    pieces[numList[6]] = tempA;
-    pieces[numList[7]] = tempB;
+    pieces[nums[6]] = tempA;
+    pieces[nums[7]] = tempB;
   } else {
-    let tempA = pieces[numList[7]];
-    let tempB = pieces[numList[6]];
+    let tempA = pieces[nums[7]];
+    let tempB = pieces[nums[6]];
     for (let i = 5; i >= 0; i--) {
-      pieces[numList[i + 2]] = pieces[numList[i]];
+      pieces[nums[i + 2]] = pieces[nums[i]];
     }
-    pieces[numList[1]] = tempA;
-    pieces[numList[0]] = tempB;
+    pieces[nums[1]] = tempA;
+    pieces[nums[0]] = tempB;
   }
 }
 
@@ -285,6 +277,9 @@ function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case "F12":
       window.ipcRenderer.send('open-dev-tools');
+      break;
+    case "q":
+      window.ipcRenderer.send('app-quit');
       break;
     case "a":
       toggleAxes();

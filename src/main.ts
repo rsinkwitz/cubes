@@ -43,3 +43,8 @@ app.on('activate', () => {
 ipcMain.on('open-dev-tools', () => {
   mainWindow?.webContents.openDevTools();
 });
+
+ipcMain.on('app-quit', () => {
+    app.quit();
+});
+
