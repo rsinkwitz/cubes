@@ -198,7 +198,12 @@ function rotatePieces(key: string): void {
     isRightTurn = false;
   }
 
-  let numList: number[]; // List of piece indices to rotate
+  if (isHideNext) {
+    isHideNext = false;
+    toggleHideObjects(nums.map((index) => pieces[index]));
+    return;
+  }
+
   let selectedPieces: THREE.Mesh[] = []; // List of pieces to rotate
   switch (key.toLowerCase()) {
     case "x":
@@ -222,12 +227,6 @@ function rotatePieces(key: string): void {
     default:
       rotateModelLayer(nums, isRightTurn === forward);
       selectedPieces = nums.map((index) => pieces[index]);
-  }
-
-  if (isHideNext) {
-    isHideNext = false;
-    toggleHideObjects(selectedPieces);
-    return;
   }
 
   // Rotate the selected pieces
@@ -323,21 +322,27 @@ function onKeyDown(event: KeyboardEvent): void {
 
     case "ArrowUp":
       cube.rotation.x += 0.1;
+      cube.updateMatrix();
       break;
     case "ArrowDown":
       cube.rotation.x -= 0.1;
+      cube.updateMatrix();
       break;
     case "ArrowLeft":
       cube.rotation.y += 0.1;
+      cube.updateMatrix();
       break;
     case "ArrowRight":
       cube.rotation.y -= 0.1;
+      cube.updateMatrix();
       break;
-    case "z":
+    case "k":
       cube.rotation.z += 0.1;
+      cube.updateMatrix();
       break;
-    case "Z":
+    case "K":
       cube.rotation.z -= 0.1;
+      cube.updateMatrix();
       break;
     case "0":
       cube.rotation.x = 0;
