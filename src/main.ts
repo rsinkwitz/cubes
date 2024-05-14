@@ -5,21 +5,16 @@ let mainWindow: BrowserWindow | null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 720,
+    width: 640,
+    height: 640,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.bundle.js') // Specify the preload script
+      preload: path.join(__dirname, 'preload.bundle.js')
     }
   });
-  // mainWindow.webContents.openDevTools();
-
-  mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html')); // Adjusted path here
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
+  mainWindow.on('closed', () => mainWindow = null);
 }
 
 app.on('ready', createWindow);
@@ -35,10 +30,6 @@ app.on('activate', () => {
     createWindow();
   }
 });
-
-// ipcMain.on('keydown', (event, key) => {
-//   mainWindow?.webContents.send('keydown', key);
-// });
 
 ipcMain.on('open-dev-tools', () => {
   mainWindow?.webContents.openDevTools();

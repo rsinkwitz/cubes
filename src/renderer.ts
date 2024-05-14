@@ -13,7 +13,7 @@ declare global {
 
 let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
-let controls : OrbitControls;
+let controls: OrbitControls;
 let renderer: THREE.WebGLRenderer;
 let cube: THREE.Mesh;
 let animationPaused: boolean = true;
@@ -22,14 +22,14 @@ let showAxes: boolean = false;
 let isHideNext: boolean = false;
 let numRotAnims: number = 0;
 
-const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95,0.95,0.95);
+const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
 const materials: THREE.MeshBasicMaterial[] = [
-  new THREE.MeshBasicMaterial({ color: 0xff0000 }), // right  red
-  new THREE.MeshBasicMaterial({ color: 0xff8000 }), // left   orange
-  new THREE.MeshBasicMaterial({ color: 0xffffff }), // top    white
-  new THREE.MeshBasicMaterial({ color: 0xffff00 }), // bottom yellow
-  new THREE.MeshBasicMaterial({ color: 0x00ff00 }), // front  green
-  new THREE.MeshBasicMaterial({ color: 0x0000ff })  // back   blue
+  new THREE.MeshBasicMaterial({color: 0xff0000}), // right  red
+  new THREE.MeshBasicMaterial({color: 0xff8000}), // left   orange
+  new THREE.MeshBasicMaterial({color: 0xffffff}), // top    white
+  new THREE.MeshBasicMaterial({color: 0xffff00}), // bottom yellow
+  new THREE.MeshBasicMaterial({color: 0x00ff00}), // front  green
+  new THREE.MeshBasicMaterial({color: 0x0000ff})  // back   blue
 ];
 
 let pieces: THREE.Mesh[] = [];
@@ -44,7 +44,7 @@ function init(): void {
   );
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  controls = new OrbitControls( camera, renderer.domElement );
+  controls = new OrbitControls(camera, renderer.domElement);
   document.body.appendChild(renderer.domElement);
 
   const axesHelper = new THREE.AxesHelper(3);
@@ -54,8 +54,9 @@ function init(): void {
   createPieces();
   cube = pieces[26];
 
-  camera.position.set( 0, 0, 5 );
+  camera.position.set(2, 2, 5);
   controls.update();
+  controls.saveState();
 
   animate(); // Always start the animation loop
 }
@@ -79,6 +80,7 @@ function createCube(x: number, y: number, z: number): THREE.Mesh {
   return cube;
 }
 
+// the cube model (pieces) is simply the list of cube objects sorted by z,y,x ascending
 function createPieces(): void {
   for (let i = -1; i <= 1; i++) {
     for (let j = -1; j <= 1; j++) {
@@ -88,10 +90,10 @@ function createPieces(): void {
       }
     }
   }
-  updateCubeTextures();
+  updateCubeNumberTextures();
 }
 
-function updateCubeTextures(): void {
+function updateCubeNumberTextures(): void {
   pieces.forEach((piece, index) => {
     if (!showNumbers) {
       piece.material = materials;
@@ -127,7 +129,8 @@ function updateCubeTextures(): void {
   });
 }
 
-function animate(): void {requestAnimationFrame(animate);
+function animate(): void {
+  requestAnimationFrame(animate);
   if (!animationPaused) {
     cube.rotation.x += 0.01;
     cube.rotation.y += 0.01;
@@ -164,79 +167,71 @@ function toggleHideObjects(objects: THREE.Mesh[]): void {
   });
 }
 
-interface rotOpsParamType {axis: string; degrees: number; forward: boolean; nums: number[]}
-interface rotOpsParamMapType {
-  [key: string]: rotOpsParamType;
+interface rotationDataEntry {
+  axis: string;
+  degrees: number;
+  forward: boolean;
+  nums: number[]
 }
 
-function getRotOpsData(key: string): rotOpsParamType {
-  let data: rotOpsParamMapType = {
-    "l": {axis: "x", degrees: 90, forward: true, nums: [0, 9, 18, 21, 24, 15, 6, 3, 12]},
-    "m": {axis: "x", degrees: 90, forward: false, nums: [1, 4, 7, 16, 25, 22, 19, 10, 13]},
-    "r": {axis: "x", degrees: -90, forward: true, nums: [26, 23, 20, 11, 2, 5, 8, 17, 14]},
+interface rotationDataMap {
+  [key: string]: rotationDataEntry;
+}
+
+function getRotationData(key: string): rotationDataEntry {
+  // Define the rotation operations
+  // l: left, m: middle, r: right, u: up, e: equator, d: down, b: back, s: standing, f: front
+  // x: x-axis, y: y-axis, z: z-axis
+  // The rotation operations are defined by the axis of rotation, the degrees of rotation, the direction of rotation,
+  // and the list of piece indices of the slice to rotate. The piece indices are defined in clockwise order when
+  // looking at the face of the cube from outside.
+  let data: rotationDataMap = {
+    "l": {axis: "x", degrees:  90, forward: true,  nums: [0, 9, 18, 21, 24, 15, 6, 3, 12]},
+    "m": {axis: "x", degrees:  90, forward: false, nums: [1, 4, 7, 16, 25, 22, 19, 10, 13]},
+    "r": {axis: "x", degrees: -90, forward: true,  nums: [26, 23, 20, 11, 2, 5, 8, 17, 14]},
     "u": {axis: "y", degrees: -90, forward: false, nums: [6, 7, 8, 17, 26, 25, 24, 15, 16]},
-    "e": {axis: "y", degrees: 90, forward: false, nums: [3, 12, 21, 22, 23, 14, 5, 4, 13]},
-    "d": {axis: "y", degrees: 90, forward: false, nums: [18, 19, 20, 11, 2, 1, 0, 9, 10]},
-    "b": {axis: "z", degrees: 90, forward: true, nums: [0, 3, 6, 7, 8, 5, 2, 1, 4]},
-    "s": {axis: "z", degrees: -90, forward: true, nums: [9, 10, 11, 14, 17, 16, 15, 12, 13]},
-    "f": {axis: "z", degrees: -90, forward: true, nums: [24, 21, 18, 19, 20, 23, 26, 25, 22]},
-    "x": {axis: "x", degrees: -90, forward: true, nums: []},
-    "y": {axis: "y", degrees: -90, forward: true, nums: []},
-    "z": {axis: "z", degrees: -90, forward: true, nums: []}
+    "e": {axis: "y", degrees:  90, forward: false, nums: [3, 12, 21, 22, 23, 14, 5, 4, 13]},
+    "d": {axis: "y", degrees:  90, forward: false, nums: [18, 19, 20, 11, 2, 1, 0, 9, 10]},
+    "b": {axis: "z", degrees:  90, forward: true,  nums: [0, 3, 6, 7, 8, 5, 2, 1, 4]},
+    "s": {axis: "z", degrees: -90, forward: true,  nums: [9, 10, 11, 14, 17, 16, 15, 12, 13]},
+    "f": {axis: "z", degrees: -90, forward: true,  nums: [24, 21, 18, 19, 20, 23, 26, 25, 22]},
+    "x": {axis: "x", degrees: -90, forward: true,  nums: []},
+    "y": {axis: "y", degrees: -90, forward: true,  nums: []},
+    "z": {axis: "z", degrees: -90, forward: true,  nums: []}
   };
   return data[key];
 }
 
-function rotatePieces(key: string): void {
+function rotate(key: string): void {
   if (numRotAnims > 0) {
-    return;
+    return; // no rotation while an animation is running
   }
-  let {axis, degrees, forward, nums} = getRotOpsData(key.toLowerCase());
+  let {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
+
   if (isHideNext) {
-    toggleHideObjects(nums.map((index) => pieces[index]));
+    toggleHideObjects(nums.map((index) => pieces[index])); // toggle hide state instead
     isHideNext = false;
     return;
   }
 
-  let keyLc: boolean = key === key.toLowerCase();
+  let piecesToRotate = rotateModel(key, forward, nums);
+  rotateGraphics(piecesToRotate, axis, (key === key.toLowerCase()) ? degrees : -degrees)
+  updateCubeNumberTextures();
+}
 
-  let selectedPieces: THREE.Mesh[] = []; // List of pieces to rotate
-  switch (key.toLowerCase()) {
-    case "x":
-      selectedPieces = pieces;
-      rotateCubeModelByKey("l", !keyLc);
-      rotateCubeModelByKey("m", !keyLc);
-      rotateCubeModelByKey("r", keyLc);
-      break;
-    case "y":
-      selectedPieces = pieces;
-      rotateCubeModelByKey("u", keyLc);
-      rotateCubeModelByKey("e", !keyLc);
-      rotateCubeModelByKey("d", !keyLc);
-      break;
-    case "z":
-      selectedPieces = pieces;
-      rotateCubeModelByKey("f", keyLc);
-      rotateCubeModelByKey("s", keyLc);
-      rotateCubeModelByKey("b", !keyLc);
-      break;
-    default:
-      rotateCubeModel(nums, keyLc === forward);
-      selectedPieces = nums.map((index) => pieces[index]);
-  }
-
-  // Rotate the selected pieces
-  selectedPieces.forEach((piece) => {
-    const dummy =
-      {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: keyLc ? degrees : -degrees};
+function rotateGraphics(pieces: THREE.Mesh[], axis: string, degrees: number): void {
+  // rotate the selected pieces as animation
+  pieces.forEach((piece) => {
+    const animObj =
+      {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: degrees};
 
     let tl = gsap.timeline();
     numRotAnims++;
-    tl.to(dummy, {
+    tl.to(animObj, {
       lerpFactor: 1, duration: 0.5, ease: "linear",
       onUpdate: () => {
-        dummy.piece.matrix.copy(dummy.startMatrix); // Reset the matrix to the start matrix (undo previous rotations)
-        piece.applyMatrix4(getRotationMatrix(axis, dummy.lerpFactor * dummy.degrees));
+        animObj.piece.matrix.copy(animObj.startMatrix); // Reset the matrix to the start matrix (undo previous rotations)
+        piece.applyMatrix4(getRotationMatrix(axis, animObj.lerpFactor * animObj.degrees));
         piece.matrixWorldNeedsUpdate = true;
       },
       onComplete: () => {
@@ -244,15 +239,44 @@ function rotatePieces(key: string): void {
       }
     });
   });
-  updateCubeTextures();
 }
 
-function rotateCubeModelByKey(key: string, keyLc: boolean): void {
-  let {axis, degrees, forward, nums} = getRotOpsData(key.toLowerCase());
-  rotateCubeModel(nums, keyLc === forward);
+function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Mesh[] {
+  // rotate the cube model. It must follow the rotation so that slices can properly be selected after each rotation
+  let keyLc = key === key.toLowerCase();
+  let piecesToRotate: THREE.Mesh[] = []; // the pieces to rotate
+  switch (key.toLowerCase()) {
+    case "x":
+      piecesToRotate = pieces;
+      rotateModelSliceByKey("l", !keyLc);
+      rotateModelSliceByKey("m", !keyLc);
+      rotateModelSliceByKey("r", keyLc);
+      break;
+    case "y":
+      piecesToRotate = pieces;
+      rotateModelSliceByKey("u", keyLc);
+      rotateModelSliceByKey("e", !keyLc);
+      rotateModelSliceByKey("d", !keyLc);
+      break;
+    case "z":
+      piecesToRotate = pieces;
+      rotateModelSliceByKey("f", keyLc);
+      rotateModelSliceByKey("s", keyLc);
+      rotateModelSliceByKey("b", !keyLc);
+      break;
+    default:
+      piecesToRotate = nums.map((index) => pieces[index]);
+      rotateModelSlice(nums, keyLc === forward);
+  }
+  return piecesToRotate;
 }
 
-function rotateCubeModel(nums: number[], rightRotate: boolean): void {
+function rotateModelSliceByKey(key: string, keyLc: boolean): void {
+  let {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
+  rotateModelSlice(nums, keyLc === forward);
+}
+
+function rotateModelSlice(nums: number[], rightRotate: boolean): void {
   // reflect the turn in the pieces list
   if (rightRotate) {
     let tempA = pieces[nums[0]];
@@ -285,34 +309,34 @@ function onKeyDown(event: KeyboardEvent): void {
       toggleAxes();
       break;
     case "c":
-      setColors( [0x808080]);
+      setColors([0x808080]);
       break;
 
-    case "l":
+    case "l": // left
     case "L":
-    case "m":
+    case "m": // middle
     case "M":
-    case "r":
+    case "r": // right
     case "R":
-    case "u":
+    case "u": // up
     case "U":
-    case "e":
+    case "e": // equator
     case "E":
-    case "d":
+    case "d": // down
     case "D":
-    case "b":
+    case "b": // back
     case "B":
-    case "s":
+    case "s": // standing
     case "S":
-    case "f":
+    case "f": // front
     case "F":
-    case "x":
+    case "x": // x-axis
     case "X":
-    case "y":
+    case "y": // y-axis
     case "Y":
-    case "z":
+    case "z": // z-axis
     case "Z":
-      rotatePieces(event.key);
+      rotate(event.key);
       break;
 
     case "ArrowUp":
@@ -340,6 +364,9 @@ function onKeyDown(event: KeyboardEvent): void {
       cube.updateMatrix();
       break;
     case "0":
+      controls.reset();
+      break;
+    case "1":
       cube.rotation.x = 0;
       cube.rotation.y = 0;
       cube.rotation.z = 0;
@@ -352,7 +379,7 @@ function onKeyDown(event: KeyboardEvent): void {
     case "n": // Pause animation
     case "N":
       showNumbers = !showNumbers;
-      updateCubeTextures();
+      updateCubeNumberTextures();
       break;
     case "h":
     case "H":
