@@ -29,6 +29,28 @@ module.exports = {
         use: {
           loader: 'ts-loader'
         }
+      },
+      {
+        test: /\.(woff(2)?|ttf|eot|svg|typeface\.json)(\?v=\d+\.\d+\.\d+)?$/,
+        use: [
+          {
+            loader: 'file-loader',
+            options: {
+              name(resourcePath, resourceQuery) {
+                // `resourcePath` - `/absolute/path/to/file.js`
+                // `resourceQuery` - `?foo=bar`
+
+                if (process.env.NODE_ENV === 'development') {
+                  return '[path][name].[ext]';
+                }
+
+                return '[contenthash].[ext]';
+              },
+              modules: true
+            }
+          }
+        ],
+        type: 'javascript/auto', // This line is important to load JSON files
       }
     ]
   },

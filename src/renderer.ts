@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls";
+import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
+import {Font, FontLoader} from 'three/examples/jsm/loaders/FontLoader';
+
 import gsap from "gsap";
 
 declare global {
@@ -19,6 +22,7 @@ let cube: THREE.Mesh;
 let animationPaused: boolean = true;
 let showNumbers: boolean = false;
 let showAxes: boolean = false;
+let showRotationLetters: boolean = false;
 let isHideNext: boolean = false;
 let numRotAnims: number = 0;
 
@@ -33,6 +37,7 @@ const materials: THREE.MeshBasicMaterial[] = [
 ];
 
 let pieces: THREE.Mesh[] = [];
+let rotationLetters: THREE.Mesh[] = [];
 
 function init(): void {
   scene = new THREE.Scene();
@@ -44,6 +49,7 @@ function init(): void {
   );
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0xb0c4de); // Light blue-gray color in hexadecimal
   controls = new OrbitControls(camera, renderer.domElement);
   document.body.appendChild(renderer.domElement);
 
@@ -53,6 +59,7 @@ function init(): void {
 
   createPieces();
   cube = pieces[26];
+  // createRotationArrow();
 
   camera.position.set(2, 2, 5);
   controls.update();
@@ -68,6 +75,11 @@ function toggleAxes(): void {
       child.visible = showAxes;
     }
   });
+}
+
+function toggleRotationLetters(): void {
+  showRotationLetters = !showRotationLetters;
+  setRotationLetters(showRotationLetters, false);
 }
 
 function createCube(x: number, y: number, z: number): THREE.Mesh {
@@ -127,6 +139,97 @@ function updateCubeNumberTextures(): void {
     // Update the cube's material
     piece.material = NumberedMaterials;
   });
+}
+
+function createOneRotationLetter(font: Font, key: string, x: number, y: number, z: number, rotDegrees: number, rotAxis: THREE.Vector3): void {
+      // let geometry = new TextGeometry( 'Hello three.js!', {
+    //     font: font,
+    //     size: 80,
+    //     curveSegments: 12,
+    //     bevelEnabled: true,
+    //     bevelThickness: 10,
+    //     bevelSize: 8,
+    //     bevelOffset: 0,
+    //     bevelSegments: 5
+    // } );
+    let geometry = new TextGeometry(key, {
+      font: font,
+      size: 1, // size of the text
+      depth: 0.1, // thickness to extrude text
+    });
+    geometry.center();
+
+    let material = new THREE.MeshBasicMaterial({color: 0x1f1f1f, transparent: true, opacity: 0.8 });
+
+    const textMesh = new THREE.Mesh(geometry, material);
+    textMesh.visible = showRotationLetters;
+    textMesh.position.set(x * 1.6, y * 1.6, z * 1.6);
+    textMesh.rotateOnAxis(rotAxis, rotDegrees * Math.PI / 180);
+    rotationLetters.push(textMesh);
+    scene.add(textMesh);
+}
+
+function createRotationArrow() {
+  // Create a shape for the outer part of the quarter circle
+  let outerShape = new THREE.Shape();
+  outerShape.moveTo(0, 0);
+  outerShape.absarc(0, 0, 5, 0, Math.PI / 2, false);
+
+// Create a shape for the inner part of the quarter circle
+  let innerShape = new THREE.Shape();
+  // innerShape.moveTo(0, 0);
+  innerShape.absarc(0, 0, 4, 0, Math.PI / 2, false);
+
+// Subtract the inner part from the outer part to create the thickness
+  outerShape.holes.push(innerShape);
+
+// // Create a shape for the arrow head
+//   let arrowShape = new THREE.Shape();
+//   arrowShape.moveTo(5, 0);
+//   arrowShape.lineTo(6, 1);
+//   arrowShape.lineTo(4, 1);
+//   arrowShape.lineTo(5, 0);
+//
+// // Add the arrow head to the quarter circle
+//   outerShape.add(arrowShape);
+
+// Create an extrude geometry with the shape
+  let extrudeSettings = {
+    steps: 2,
+    depth: 0, // This will be the thickness of the arrow
+    // bevelEnabled: true,
+    // bevelThickness: 1,
+    // bevelSize: 1,
+    // bevelOffset: 0,
+    // bevelSegments: 1
+  };
+  let geometry = new THREE.ExtrudeGeometry(outerShape, extrudeSettings);
+
+// Create a mesh with the geometry
+  let material = new THREE.MeshBasicMaterial({color: 0xff0000});
+  let mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(0,0,2);
+
+// Add the mesh to the scene
+  scene.add(mesh);
+}
+
+function setRotationLetters(visible: boolean, inverse: boolean): void {
+  rotationLetters.forEach((letter) => {
+      scene.remove(letter);
+  });
+  if (visible) {
+  const loader = new FontLoader();
+  let s = inverse ? "'":"";
+  loader.load(require('three/examples/fonts/helvetiker_regular.typeface.json').default, function (font) {
+    createOneRotationLetter(font, 'F'+s, 0, 0, 1, 0, new THREE.Vector3(0, 0, 0));
+    createOneRotationLetter(font, 'B'+s, 0, 0, -1, 180, new THREE.Vector3(0, 1, 0));
+    createOneRotationLetter(font, 'R'+s, 1, 0, 0, 90, new THREE.Vector3(0, 1, 0));
+    createOneRotationLetter(font, 'L'+s, -1, 0, 0, -90, new THREE.Vector3(0, 1, 0));
+    createOneRotationLetter(font, 'U'+s, 0, 1, 0, -90, new THREE.Vector3(1, 0, 0));
+    createOneRotationLetter(font, 'D'+s, 0, -1, 0, 90, new THREE.Vector3(1, 0, 0));
+  });
+  }
 }
 
 function animate(): void {
@@ -302,6 +405,9 @@ function onKeyDown(event: KeyboardEvent): void {
     case "F12":
       window.ipcRenderer.send('open-dev-tools');
       break;
+    case "F1":
+      toggleRotationLetters()
+      break;
     case "q":
       window.ipcRenderer.send('app-quit');
       break;
@@ -391,5 +497,21 @@ function onKeyDown(event: KeyboardEvent): void {
 }
 
 document.addEventListener("keydown", onKeyDown);
+
+document.addEventListener('keydown', function(event) {
+  if (event.shiftKey) {
+    if (showRotationLetters) {
+      setRotationLetters(true, true);
+    }
+  }
+});
+
+document.addEventListener('keyup', function(event) {
+  if (event.key === 'Shift') {
+    if (showRotationLetters) {
+      setRotationLetters(true, false);
+    }
+  }
+});
 
 window.addEventListener("DOMContentLoaded", init);
