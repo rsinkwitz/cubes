@@ -214,9 +214,24 @@ function createRotationArrow() {
   scene.add(mesh);
 }
 
+function disposeMesh(mesh: THREE.Mesh): void {
+  if (mesh.geometry) {
+    mesh.geometry.dispose();
+  }
+
+  if (Array.isArray(mesh.material)) {
+    mesh.material.forEach((material) => {
+      material.dispose();
+    });
+  } else if (mesh.material) {
+    mesh.material.dispose();
+  }
+}
+
 function setRotationLetters(visible: boolean, inverse: boolean): void {
   rotationLetters.forEach((letter) => {
       scene.remove(letter);
+      disposeMesh(letter);
   });
   if (visible) {
   const loader = new FontLoader();
@@ -417,6 +432,15 @@ function onKeyDown(event: KeyboardEvent): void {
     case "c":
       setColors([0x808080]);
       break;
+    case "n": // Pause animation
+    case "N":
+      showNumbers = !showNumbers;
+      updateCubeNumberTextures();
+      break;
+    case "h":
+    case "H":
+      isHideNext = true;
+      break;
 
     case "l": // left
     case "L":
@@ -481,15 +505,6 @@ function onKeyDown(event: KeyboardEvent): void {
     case "p": // Pause animation
     case "P":
       animationPaused = !animationPaused;
-      break;
-    case "n": // Pause animation
-    case "N":
-      showNumbers = !showNumbers;
-      updateCubeNumberTextures();
-      break;
-    case "h":
-    case "H":
-      isHideNext = true;
       break;
     default:
       break;
