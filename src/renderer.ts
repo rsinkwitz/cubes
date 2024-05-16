@@ -69,7 +69,7 @@ function init(): void {
 function createMain() {
   createPieces();
   cube = pieces[26];
-  // createRotationArrow();
+  createRotationArrow();
 }
 
 function resetMain() {
@@ -184,47 +184,31 @@ function createOneRotationLetter(font: Font, key: string, x: number, y: number, 
 }
 
 function createRotationArrow() {
-  // Create a shape for the outer part of the quarter circle
-  let outerShape = new THREE.Shape();
-  outerShape.moveTo(0, 0);
-  outerShape.absarc(0, 0, 5, 0, Math.PI / 2, false);
+  let endAngle = 90 * Math.PI / 180;
+  let outerRadius = 1;
+  let thickness = 0.1;
+  let arrowHeadSize = 0.2;
+  let shape = new THREE.Shape();
+  shape.absarc(0, 0, outerRadius, 0, endAngle, false);
+  shape.absarc(0, 0, outerRadius - thickness, endAngle, 0, true);
+  shape.lineTo(outerRadius - arrowHeadSize - thickness / 2, 0);
+  shape.lineTo(outerRadius - thickness / 2, -arrowHeadSize);
+  shape.lineTo(outerRadius + arrowHeadSize - thickness /2, 0);
 
-// Create a shape for the inner part of the quarter circle
-  let innerShape = new THREE.Shape();
-  // innerShape.moveTo(0, 0);
-  innerShape.absarc(0, 0, 4, 0, Math.PI / 2, false);
-
-// Subtract the inner part from the outer part to create the thickness
-  outerShape.holes.push(innerShape);
-
-// // Create a shape for the arrow head
-//   let arrowShape = new THREE.Shape();
-//   arrowShape.moveTo(5, 0);
-//   arrowShape.lineTo(6, 1);
-//   arrowShape.lineTo(4, 1);
-//   arrowShape.lineTo(5, 0);
-//
-// // Add the arrow head to the quarter circle
-//   outerShape.add(arrowShape);
-
-// Create an extrude geometry with the shape
   let extrudeSettings = {
-    steps: 2,
-    depth: 0, // This will be the thickness of the arrow
-    // bevelEnabled: true,
-    // bevelThickness: 1,
-    // bevelSize: 1,
-    // bevelOffset: 0,
-    // bevelSegments: 1
+    steps: 1,
+    depth: thickness, // This will be the thickness of the arrow
+    bevelEnabled: false,
+    bevelThickness: 0.2,
+    bevelSize: 0.2,
+    bevelOffset: 0,
+    bevelSegments: 1
   };
-  let geometry = new THREE.ExtrudeGeometry(outerShape, extrudeSettings);
-
-// Create a mesh with the geometry
-  let material = new THREE.MeshBasicMaterial({color: 0xff0000});
+  let geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  let material = new THREE.MeshBasicMaterial({color: 0x1f1f1f, transparent: true, opacity: 0.8, wireframe: false});
   let mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(0,0,2);
-
-// Add the mesh to the scene
+  mesh.position.set(0,0,1.6);
+  mesh.rotation.z = 45 * Math.PI / 180;
   scene.add(mesh);
 }
 
