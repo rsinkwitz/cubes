@@ -57,15 +57,29 @@ function init(): void {
   axesHelper.visible = showAxes;
   scene.add(axesHelper);
 
-  createPieces();
-  cube = pieces[26];
-  // createRotationArrow();
+  createMain();
 
   camera.position.set(2, 2, 5);
   controls.update();
   controls.saveState();
 
   animate(); // Always start the animation loop
+}
+
+function createMain() {
+  createPieces();
+  cube = pieces[26];
+  // createRotationArrow();
+}
+
+function resetMain() {
+  pieces.forEach((piece) => {
+    scene.remove(piece);
+    disposeMesh(piece);
+  });
+  pieces = [];
+  rotationLetters = [];
+  createMain();
 }
 
 function toggleAxes(): void {
@@ -218,7 +232,6 @@ function disposeMesh(mesh: THREE.Mesh): void {
   if (mesh.geometry) {
     mesh.geometry.dispose();
   }
-
   if (Array.isArray(mesh.material)) {
     mesh.material.forEach((material) => {
       material.dispose();
@@ -230,20 +243,20 @@ function disposeMesh(mesh: THREE.Mesh): void {
 
 function setRotationLetters(visible: boolean, inverse: boolean): void {
   rotationLetters.forEach((letter) => {
-      scene.remove(letter);
-      disposeMesh(letter);
+    scene.remove(letter);
+    disposeMesh(letter);
   });
   if (visible) {
-  const loader = new FontLoader();
-  let s = inverse ? "'":"";
-  loader.load(require('three/examples/fonts/helvetiker_regular.typeface.json').default, function (font) {
-    createOneRotationLetter(font, 'F'+s, 0, 0, 1, 0, new THREE.Vector3(0, 0, 0));
-    createOneRotationLetter(font, 'B'+s, 0, 0, -1, 180, new THREE.Vector3(0, 1, 0));
-    createOneRotationLetter(font, 'R'+s, 1, 0, 0, 90, new THREE.Vector3(0, 1, 0));
-    createOneRotationLetter(font, 'L'+s, -1, 0, 0, -90, new THREE.Vector3(0, 1, 0));
-    createOneRotationLetter(font, 'U'+s, 0, 1, 0, -90, new THREE.Vector3(1, 0, 0));
-    createOneRotationLetter(font, 'D'+s, 0, -1, 0, 90, new THREE.Vector3(1, 0, 0));
-  });
+    const loader = new FontLoader();
+    let s = inverse ? "'" : "";
+    loader.load(require('three/examples/fonts/helvetiker_regular.typeface.json').default, function (font) {
+      createOneRotationLetter(font, 'F' + s, 0, 0, 1, 0, new THREE.Vector3(0, 0, 0));
+      createOneRotationLetter(font, 'B' + s, 0, 0, -1, 180, new THREE.Vector3(0, 1, 0));
+      createOneRotationLetter(font, 'R' + s, 1, 0, 0, 90, new THREE.Vector3(0, 1, 0));
+      createOneRotationLetter(font, 'L' + s, -1, 0, 0, -90, new THREE.Vector3(0, 1, 0));
+      createOneRotationLetter(font, 'U' + s, 0, 1, 0, -90, new THREE.Vector3(1, 0, 0));
+      createOneRotationLetter(font, 'D' + s, 0, -1, 0, 90, new THREE.Vector3(1, 0, 0));
+    });
   }
 }
 
@@ -422,6 +435,9 @@ function onKeyDown(event: KeyboardEvent): void {
       break;
     case "F1":
       toggleRotationLetters()
+      break;
+    case "F10":
+      resetMain();
       break;
     case "q":
       window.ipcRenderer.send('app-quit');
