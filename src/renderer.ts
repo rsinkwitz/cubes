@@ -22,12 +22,12 @@ let cube: THREE.Mesh;
 let animationPaused: boolean = true;
 let showNumbers: boolean = false;
 let showAxes: boolean = false;
-let showRotationLetters: boolean = false;
+let showRotationInfos: boolean = false;
 let isHideNext: boolean = false;
 let numRotAnims: number = 0;
 
 const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-const materials: THREE.MeshBasicMaterial[] = [
+const basicMaterials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({color: 0xff0000}), // right  red
   new THREE.MeshBasicMaterial({color: 0xff8000}), // left   orange
   new THREE.MeshBasicMaterial({color: 0xffffff}), // top    white
@@ -37,7 +37,7 @@ const materials: THREE.MeshBasicMaterial[] = [
 ];
 
 let pieces: THREE.Mesh[] = [];
-let rotationLetters: THREE.Mesh[] = [];
+let infoGroups: THREE.Group[] = [];
 
 function init(): void {
   scene = new THREE.Scene();
@@ -69,7 +69,7 @@ function init(): void {
 function createMain() {
   createPieces();
   cube = pieces[26];
-  createRotationArrow();
+  //createRotationArrow();
 }
 
 function resetMain() {
@@ -78,7 +78,7 @@ function resetMain() {
     disposeMesh(piece);
   });
   pieces = [];
-  rotationLetters = [];
+  infoGroups = [];
   createMain();
 }
 
@@ -91,14 +91,14 @@ function toggleAxes(): void {
   });
 }
 
-function toggleRotationLetters(): void {
-  showRotationLetters = !showRotationLetters;
-  setRotationLetters(showRotationLetters, false);
+function toggleRotationInfos(): void {
+  showRotationInfos = !showRotationInfos;
+  setRotationInfos(showRotationInfos, false);
 }
 
 function createCube(x: number, y: number, z: number): THREE.Mesh {
   let cube: THREE.Mesh;
-  cube = new THREE.Mesh(geometry, materials);
+  cube = new THREE.Mesh(geometry, basicMaterials);
   cube.matrixAutoUpdate = false;
   cube.position.set(x, y, z);
   cube.updateMatrix();
@@ -122,7 +122,7 @@ function createPieces(): void {
 function updateCubeNumberTextures(): void {
   pieces.forEach((piece, index) => {
     if (!showNumbers) {
-      piece.material = materials;
+      piece.material = basicMaterials;
       return;
     }
 
@@ -138,52 +138,37 @@ function updateCubeNumberTextures(): void {
       context.fillText(index.toString(), canvas.width / 2, canvas.height / 2);
     }
 
-    // Create a texture from the canvas
     const texture = new THREE.Texture(canvas);
     texture.needsUpdate = true;
-
-    // Create a material using the texture
-    const numberedMaterial = new THREE.MeshBasicMaterial({map: texture});
-
-    // Create an array of materials for each face of the cube
-    const NumberedMaterials = [
-      numberedMaterial, numberedMaterial, numberedMaterial, numberedMaterial, numberedMaterial, numberedMaterial
+    const mat = new THREE.MeshBasicMaterial({map: texture});
+    piece.material = [
+      mat, mat, mat, mat, mat, mat
     ];
-
-    // Update the cube's material
-    piece.material = NumberedMaterials;
   });
 }
 
-function createOneRotationLetter(font: Font, key: string, x: number, y: number, z: number, rotDegrees: number, rotAxis: THREE.Vector3): void {
-      // let geometry = new TextGeometry( 'Hello three.js!', {
-    //     font: font,
-    //     size: 80,
-    //     curveSegments: 12,
-    //     bevelEnabled: true,
-    //     bevelThickness: 10,
-    //     bevelSize: 8,
-    //     bevelOffset: 0,
-    //     bevelSegments: 5
-    // } );
-    let geometry = new TextGeometry(key, {
-      font: font,
-      size: 1, // size of the text
-      depth: 0.1, // thickness to extrude text
-    });
-    geometry.center();
-
-    let material = new THREE.MeshBasicMaterial({color: 0x1f1f1f, transparent: true, opacity: 0.8 });
-
-    const textMesh = new THREE.Mesh(geometry, material);
-    textMesh.visible = showRotationLetters;
-    textMesh.position.set(x * 1.6, y * 1.6, z * 1.6);
-    textMesh.rotateOnAxis(rotAxis, rotDegrees * Math.PI / 180);
-    rotationLetters.push(textMesh);
-    scene.add(textMesh);
+function createOneRotationInfoGroup(font: Font, key: string, inverse: boolean, x: number, y: number, z: number, rotDegrees: number, rotAxis: THREE.Vector3): void {
+  let group: THREE.Group = new THREE.Group();
+  group.add(createOneRotationLetter(font, key + (inverse ? "'" : ""), x, y, z, rotDegrees, rotAxis));
+  group.add(createRotationArrow(inverse));
+  group.position.set(x * 1.6, y * 1.6, z * 1.6);
+  group.rotateOnAxis(rotAxis, rotDegrees * Math.PI / 180);
+  scene.add(group);
+  infoGroups.push(group);
 }
 
-function createRotationArrow() {
+function createOneRotationLetter(font: Font, key: string, x: number, y: number, z: number, rotDegrees: number, rotAxis: THREE.Vector3): THREE.Mesh {
+    let geometry = new TextGeometry(key, {
+      font: font, size: 1, depth: 0.1,
+    //     curveSegments: 12, bevelEnabled: true, bevelThickness: 10, bevelSize: 8, bevelOffset: 0, bevelSegments: 5
+    });
+    geometry.center();
+    let material = new THREE.MeshBasicMaterial({color: 0x1f1f1f, transparent: true, opacity: 0.8 });
+    const mesh = new THREE.Mesh(geometry, material);
+    return mesh;
+}
+
+function createRotationArrow(inverse: boolean): THREE.Mesh {
   let endAngle = 90 * Math.PI / 180;
   let outerRadius = 1;
   let thickness = 0.1;
@@ -196,50 +181,49 @@ function createRotationArrow() {
   shape.lineTo(outerRadius + arrowHeadSize - thickness /2, 0);
 
   let extrudeSettings = {
-    steps: 1,
-    depth: thickness, // This will be the thickness of the arrow
-    bevelEnabled: false,
-    bevelThickness: 0.2,
-    bevelSize: 0.2,
-    bevelOffset: 0,
-    bevelSegments: 1
+    steps: 1, depth: thickness, bevelEnabled: false, bevelThickness: 0.2, bevelSize: 0.2, bevelOffset: 0, bevelSegments: 1
   };
   let geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
   let material = new THREE.MeshBasicMaterial({color: 0x1f1f1f, transparent: true, opacity: 0.8, wireframe: false});
   let mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(0,0,1.6);
   mesh.rotation.z = 45 * Math.PI / 180;
-  scene.add(mesh);
+  if (inverse) {
+    mesh.rotation.y = 180 * Math.PI / 180;
+  }
+  return mesh;
 }
 
-function disposeMesh(mesh: THREE.Mesh): void {
-  if (mesh.geometry) {
-    mesh.geometry.dispose();
+function disposeMesh(mesh: THREE.Object3D): void {
+  if (mesh instanceof THREE.Mesh) {
+    if (mesh.geometry) {
+      mesh.geometry.dispose();
+    }
+    if (Array.isArray(mesh.material)) {
+      mesh.material.forEach((material) => {
+        material.dispose();
+      });
+    } else if (mesh.material) {
+      mesh.material.dispose();
+    }
   }
-  if (Array.isArray(mesh.material)) {
-    mesh.material.forEach((material) => {
-      material.dispose();
+}
+
+function setRotationInfos(visible: boolean, inverse: boolean): void {
+  infoGroups.forEach((group) => {
+    group.children.forEach((child) => {
+      disposeMesh(child);
     });
-  } else if (mesh.material) {
-    mesh.material.dispose();
-  }
-}
-
-function setRotationLetters(visible: boolean, inverse: boolean): void {
-  rotationLetters.forEach((letter) => {
-    scene.remove(letter);
-    disposeMesh(letter);
+    scene.remove(group);
   });
   if (visible) {
     const loader = new FontLoader();
-    let s = inverse ? "'" : "";
     loader.load(require('three/examples/fonts/helvetiker_regular.typeface.json').default, function (font) {
-      createOneRotationLetter(font, 'F' + s, 0, 0, 1, 0, new THREE.Vector3(0, 0, 0));
-      createOneRotationLetter(font, 'B' + s, 0, 0, -1, 180, new THREE.Vector3(0, 1, 0));
-      createOneRotationLetter(font, 'R' + s, 1, 0, 0, 90, new THREE.Vector3(0, 1, 0));
-      createOneRotationLetter(font, 'L' + s, -1, 0, 0, -90, new THREE.Vector3(0, 1, 0));
-      createOneRotationLetter(font, 'U' + s, 0, 1, 0, -90, new THREE.Vector3(1, 0, 0));
-      createOneRotationLetter(font, 'D' + s, 0, -1, 0, 90, new THREE.Vector3(1, 0, 0));
+      createOneRotationInfoGroup(font, 'F', inverse, 0, 0, 1, 0, new THREE.Vector3(0, 0, 0));
+      createOneRotationInfoGroup(font, 'B', inverse, 0, 0, -1, 180, new THREE.Vector3(0, 1, 0));
+      createOneRotationInfoGroup(font, 'R', inverse, 1, 0, 0, 90, new THREE.Vector3(0, 1, 0));
+      createOneRotationInfoGroup(font, 'L', inverse, -1, 0, 0, -90, new THREE.Vector3(0, 1, 0));
+      createOneRotationInfoGroup(font, 'U', inverse, 0, 1, 0, -90, new THREE.Vector3(1, 0, 0));
+      createOneRotationInfoGroup(font, 'D', inverse, 0, -1, 0, 90, new THREE.Vector3(1, 0, 0));
     });
   }
 }
@@ -418,7 +402,7 @@ function onKeyDown(event: KeyboardEvent): void {
       window.ipcRenderer.send('open-dev-tools');
       break;
     case "F1":
-      toggleRotationLetters()
+      toggleRotationInfos()
       break;
     case "F10":
       resetMain();
@@ -515,16 +499,16 @@ document.addEventListener("keydown", onKeyDown);
 
 document.addEventListener('keydown', function(event) {
   if (event.shiftKey) {
-    if (showRotationLetters) {
-      setRotationLetters(true, true);
+    if (showRotationInfos) {
+      setRotationInfos(true, true);
     }
   }
 });
 
 document.addEventListener('keyup', function(event) {
   if (event.key === 'Shift') {
-    if (showRotationLetters) {
-      setRotationLetters(true, false);
+    if (showRotationInfos) {
+      setRotationInfos(true, false);
     }
   }
 });
