@@ -26,6 +26,11 @@ let showRotationInfos: boolean = false;
 let isHideNext: boolean = false;
 let numRotAnims: number = 0;
 
+let pieces: THREE.Mesh[] = [];
+let infoGroups: THREE.Group[] = [];
+
+let opsHistory: string[] = [];
+
 const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
 const basicMaterials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({color: 0xff0000}), // right  red
@@ -35,9 +40,6 @@ const basicMaterials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({color: 0x00ff00}), // front  green
   new THREE.MeshBasicMaterial({color: 0x0080ff})  // back   blue
 ];
-
-let pieces: THREE.Mesh[] = [];
-let infoGroups: THREE.Group[] = [];
 
 function init(): void {
   scene = new THREE.Scene();
@@ -79,6 +81,7 @@ function resetMain() {
   });
   pieces = [];
   infoGroups = [];
+  opsHistory = [];
   createMain();
 }
 
@@ -301,6 +304,21 @@ function getRotationData(key: string): rotationDataEntry {
   return data[key];
 }
 
+function undoOperation(): void {
+  console.log("opsHistory: " + opsHistory);
+  if (numRotAnims > 0 || opsHistory.length === 0 || isHideNext) {
+    return; // no undo while an animation is running
+  }
+  let key = opsHistory.pop();
+  if (key) {
+    let undoKey = (key === key.toLowerCase()) ? key.toUpperCase() : key.toLowerCase();
+    console.log("key: " + key);
+    console.log("undoKey: " + undoKey);
+      rotate(undoKey);
+  }
+  let key = opsHistory.pop(); // do not log the undo uperation
+}
+
 function rotate(key: string): void {
   if (numRotAnims > 0) {
     return; // no rotation while an animation is running
@@ -312,6 +330,8 @@ function rotate(key: string): void {
     isHideNext = false;
     return;
   }
+
+  opsHistory.push(key);
 
   let piecesToRotate = rotateModel(key, forward, nums);
   rotateGraphics(piecesToRotate, axis, (key === key.toLowerCase()) ? degrees : -degrees)
@@ -448,12 +468,19 @@ function onKeyDown(event: KeyboardEvent): void {
     case "X":
     case "y": // y-axis
     case "Y":
-    case "z": // z-axis
-    case "Z":
       rotate(event.key);
       break;
+    case "z": // z-axis
+    case "Z":
+      // if z is pressed with ctrl key, undo the last operation instead
+      if (event.ctrlKey) {
+        undoOperation();
+      } else {
+        rotate(event.key);
+      }
+      break;
 
-    case "ArrowUp":
+      case "ArrowUp":
       cube.rotation.x += 0.1;
       cube.updateMatrix();
       break;
@@ -486,6 +513,10 @@ function onKeyDown(event: KeyboardEvent): void {
       cube.rotation.z = 0;
       cube.updateMatrix();
       break;
+    case "9":
+      undoOperation();
+      break;
+
     case "p": // Pause animation
     case "P":
       animationPaused = !animationPaused;
