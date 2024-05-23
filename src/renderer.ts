@@ -25,13 +25,13 @@ let showNumbers: boolean = false;
 let showAxes: boolean = false;
 let showRotationInfos: boolean = false;
 let isHideNext: boolean = false;
+let is2x2: boolean = false;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
 let fixedPieces: THREE.Mesh[] = []; // the list of pieces, not changed by rotations
 let rotPieces: THREE.Mesh[] = [];   // the list of pieces, changed by rotations
 let infoGroups: THREE.Group[] = [];
-let centerGroup: THREE.Group = new THREE.Group();
 
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
@@ -507,52 +507,34 @@ function shuffle(): void {
   }
 }
 
-function insetCenters(): void {
-  if (centerGroup.children.length > 0) {
-    return;
+function scaleTo2x2(inverse: boolean): Promise<void> {
+  if (is2x2 !== inverse) {
+    return new Promise((resolve) => resolve());
   }
-  let centerPieces = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
-  centerGroup = new THREE.Group();
-  centerPieces.forEach((index) => {
-    centerGroup.add(rotPieces[index]);
-  });
-  centerGroup.position.set(0, 0, 0);
-  scene.add(centerGroup);
-  animateScaling(centerGroup, 1, 0.5).then(() => {
-    console.log("Inset centers done");
-  });
-}
-
-function resetCenters(): void {
-  if (centerGroup.children.length === 0) {
-    console.log("No center pieces to reset");
-    return;
-  }
-  animateScaling(centerGroup, 0.5, 1).then(() => {
-    let children2 = centerGroup.children.slice();
-    children2.forEach((child) => {
-      scene.add(child);
-    }); 
-    scene.remove(centerGroup);
-    centerGroup = new THREE.Group();
-  });
-}
-
-function animateScaling(group: THREE.Group, lerpFrom: number, lerpTo: number): Promise<void> {
-  console.log("animateScaling");
   return new Promise((resolve) => {
-    const animObj =  {lerpFactor: lerpFrom};
+    let centerIndexes = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
+    let centerPieces = centerIndexes.map((index) => fixedPieces[index]);
+    let startMatrices = centerPieces.map((piece) => piece.matrixWorld.clone());
+
+    let lerpStart = 1;
+    let lerpEnd = inverse ? 2 : 0.5;
+
+    const animObj = {lerpFactor: lerpStart};
+
     let tl = gsap.timeline();
     numAnims++;
     tl.to(animObj, {
-      lerpFactor: lerpTo, duration: 1, ease: "linear",
+      lerpFactor: lerpEnd, duration:1, ease: "linear",
       onUpdate: () => {
-        // scale the group to the value of lerpFactor
-        group.scale.set(animObj.lerpFactor, animObj.lerpFactor, animObj.lerpFactor);
+        centerPieces.forEach((piece, index) => {
+          piece.matrix.copy(startMatrices[index]); // Reset the matrix to the start matrix (undo previous rotations)
+          piece.applyMatrix4(new THREE.Matrix4().makeScale(animObj.lerpFactor, animObj.lerpFactor, animObj.lerpFactor));
+          piece.matrixWorldNeedsUpdate = true;
+        });
       },
       onComplete: () => {
         numAnims--;
-        group.scale.set(lerpTo, lerpTo, lerpTo);
+        is2x2 = !inverse;
         resolve();
       }
     });
@@ -565,10 +547,10 @@ function onKeyDown(event: KeyboardEvent): void {
       toggleRotationInfos();
       break;
     case "F2":
-      insetCenters();
+      scaleTo2x2(false);
       break;
     case "F3":
-      resetCenters();
+      scaleTo2x2(true);
       break;
     case "F9":
       shuffle();
