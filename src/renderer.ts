@@ -26,11 +26,12 @@ let showAxes: boolean = false;
 let showRotationInfos: boolean = false;
 let isHideNext: boolean = false;
 
-let numRotAnims: number = 0; // number of running rotation animations (one for each cube piece)
+let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
 let fixedPieces: THREE.Mesh[] = []; // the list of pieces, not changed by rotations
 let rotPieces: THREE.Mesh[] = [];   // the list of pieces, changed by rotations
 let infoGroups: THREE.Group[] = [];
+let centerGroup: THREE.Group = new THREE.Group();
 
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
@@ -371,7 +372,7 @@ function getRotationData(key: string): rotationDataEntry {
 }
 
 function undoOperation(): void {
-  if (numRotAnims > 0 || opsHistory.length === 0 || isHideNext) {
+  if (numAnims > 0 || opsHistory.length === 0 || isHideNext) {
     return; // no undo while an animation is running
   }
   let key = opsHistory.pop();
@@ -383,7 +384,7 @@ function undoOperation(): void {
 }
 
 function rotate(key: string): void {
-  if (numRotAnims > 0) {
+  if (numAnims > 0) {
     return; // no rotation while an animation is running
   }
   let {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
@@ -408,7 +409,7 @@ function rotateGraphics(pieces: THREE.Mesh[], axis: string, degrees: number): vo
     const animObj = {lerpFactor: 0};
 
     let tl = gsap.timeline();
-    numRotAnims++;
+    numAnims++;
     tl.to(animObj, {
       lerpFactor: 1, duration: 0.5, ease: "linear",
       onUpdate: () => {
@@ -417,8 +418,8 @@ function rotateGraphics(pieces: THREE.Mesh[], axis: string, degrees: number): vo
         piece.matrixWorldNeedsUpdate = true;
       },
       onComplete: () => {
-        numRotAnims--;
-        if(numRotAnims === 0 && opsTodo.length > 0) {
+        numAnims--;
+        if(numAnims === 0 && opsTodo.length > 0) {
           let op = opsTodo.pop();
           if (op !== undefined) {
             sleep(50).then(() => rotate(op));
@@ -507,38 +508,67 @@ function shuffle(): void {
 }
 
 function insetCenters(): void {
+  if (centerGroup.children.length > 0) {
+    return;
+  }
   let centerPieces = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
-  let group = new THREE.Group();
+  centerGroup = new THREE.Group();
   centerPieces.forEach((index) => {
-    group.add(rotPieces[index]);
+    centerGroup.add(rotPieces[index]);
   });
-  group.position.set(0, 0, 0);
-  scene.add(group);
+  centerGroup.position.set(0, 0, 0);
+  scene.add(centerGroup);
+  animateScaling(centerGroup, 1, 0.5).then(() => {
+    console.log("Inset centers done");
+  });
+}
 
-  const animObj =
-  {lerpFactor: 1};
+function resetCenters(): void {
+  if (centerGroup.children.length === 0) {
+    console.log("No center pieces to reset");
+    return;
+  }
+  animateScaling(centerGroup, 0.5, 1).then(() => {
+    let children2 = centerGroup.children.slice();
+    children2.forEach((child) => {
+      scene.add(child);
+    }); 
+    scene.remove(centerGroup);
+    centerGroup = new THREE.Group();
+  });
+}
 
-  let tl = gsap.timeline();
-  numRotAnims++;
-  tl.to(animObj, {
-    lerpFactor: 0, duration: 0.5, ease: "linear",
-    onUpdate: () => {
-      // scale the group to the value of lerpFactor
-      group.scale.set(animObj.lerpFactor, animObj.lerpFactor, animObj.lerpFactor);
-    },
-    onComplete: () => {
-      numRotAnims--;
-    }
+function animateScaling(group: THREE.Group, lerpFrom: number, lerpTo: number): Promise<void> {
+  console.log("animateScaling");
+  return new Promise((resolve) => {
+    const animObj =  {lerpFactor: lerpFrom};
+    let tl = gsap.timeline();
+    numAnims++;
+    tl.to(animObj, {
+      lerpFactor: lerpTo, duration: 1, ease: "linear",
+      onUpdate: () => {
+        // scale the group to the value of lerpFactor
+        group.scale.set(animObj.lerpFactor, animObj.lerpFactor, animObj.lerpFactor);
+      },
+      onComplete: () => {
+        numAnims--;
+        group.scale.set(lerpTo, lerpTo, lerpTo);
+        resolve();
+      }
+    });
   });
 }
 
 function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case "F1":
-      toggleRotationInfos()
+      toggleRotationInfos();
       break;
     case "F2":
       insetCenters();
+      break;
+    case "F3":
+      resetCenters();
       break;
     case "F9":
       shuffle();
