@@ -509,12 +509,16 @@ function shuffle(): void {
 
 function scaleTo2x2(inverse: boolean): Promise<void> {
   if (is2x2 !== inverse) {
-    return new Promise((resolve) => resolve());
+    return new Promise((resolve, reject) => reject());
   }
   return new Promise((resolve) => {
     let centerIndexes = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
     let centerPieces = centerIndexes.map((index) => fixedPieces[index]);
     let startMatrices = centerPieces.map((piece) => piece.matrixWorld.clone());
+
+    if (inverse) {
+      centerPieces.forEach((piece) => { piece.visible = true; });
+    }
 
     let lerpStart = 1;
     let lerpEnd = inverse ? 2 : 0.5;
@@ -534,6 +538,9 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
       },
       onComplete: () => {
         numAnims--;
+        if (!inverse) {
+          centerPieces.forEach((piece) => { piece.visible = false; });
+        }
         is2x2 = !inverse;
         resolve();
       }
