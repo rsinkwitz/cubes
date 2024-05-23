@@ -19,27 +19,32 @@ let camera: THREE.PerspectiveCamera;
 let controls: OrbitControls;
 let renderer: THREE.WebGLRenderer;
 let cube: THREE.Mesh;
+
 let animationPaused: boolean = true;
 let showNumbers: boolean = false;
 let showAxes: boolean = false;
 let showRotationInfos: boolean = false;
 let isHideNext: boolean = false;
-let numRotAnims: number = 0;
 
-let pieces: THREE.Mesh[] = [];
+let numRotAnims: number = 0; // number of running rotation animations (one for each cube piece)
+
+let fixedPieces: THREE.Mesh[] = []; // the list of pieces, not changed by rotations
+let rotPieces: THREE.Mesh[] = [];   // the list of pieces, changed by rotations
 let infoGroups: THREE.Group[] = [];
 
-let opsHistory: string[] = [];
+let opsHistory: string[] = []; // the list of operations performed
+let opsTodo: string[] = []; // the list of operations to perform automatically
 
 const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
 const basicMaterials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({color: 0xff0000}), // right  red
-  new THREE.MeshBasicMaterial({color: 0xFFD700}), // left   orange
+  new THREE.MeshBasicMaterial({color: 0xFFC700}), // left   orange
   new THREE.MeshBasicMaterial({color: 0xffffff}), // top    white
   new THREE.MeshBasicMaterial({color: 0xffff00}), // bottom yellow
   new THREE.MeshBasicMaterial({color: 0x00ff00}), // front  green
   new THREE.MeshBasicMaterial({color: 0x0080ff})  // back   blue
 ];
+const blackMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x202020});
 
 function init(): void {
   scene = new THREE.Scene();
@@ -65,23 +70,57 @@ function init(): void {
   controls.update();
   controls.saveState();
 
-  animate(); // Always start the animation loop
+  animate();
 }
 
 function createMain() {
-  createPieces();
-  cube = pieces[26];
-  //createRotationArrow();
+  createAllCubes();
+  cube = rotPieces[26];
+  //createBeveledCube();
+
+}
+
+function createBeveledCube(): void {
+  // Create a square shape with a beveled edge
+  const bevel = 0.05;
+  let ih = 0.5 - bevel; // inner half of the side
+  let oh = 0.5; // outer half of the side
+  const shape = new THREE.Shape();
+  shape.moveTo(-ih, -oh);
+  shape.lineTo(ih, -oh);
+  shape.absarc(ih, -ih, bevel, -Math.PI / 2, 0, false);
+  shape.lineTo(oh, ih);
+  shape.absarc(ih, ih, bevel, 0, Math.PI / 2, false);
+  shape.lineTo(-ih, oh);
+  shape.absarc(-ih, ih, bevel, Math.PI / 2, Math.PI, false);
+  shape.lineTo(-oh, -ih);
+  shape.absarc(-ih, -ih, bevel, Math.PI, Math.PI * 3 / 2, false);
+
+  const extrudeSettings = {
+    steps: 1,
+    depth: 1 - bevel * 2,
+    bevelEnabled: true,
+    bevelThickness: 0.1,
+    bevelSize: bevel,
+    bevelOffset: 0,
+    bevelSegments: 3
+  };
+
+  const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  const material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+  let cube = new THREE.Mesh(geometry, material);
+  cube.position.set(3, 0, 0);
+  scene.add(cube);
 }
 
 function resetMain() {
-  pieces.forEach((piece) => {
+  rotPieces.forEach((piece) => {
     scene.remove(piece);
     disposeMesh(piece);
   });
-  pieces = [];
   infoGroups = [];
   opsHistory = [];
+  opsTodo = [];
   createMain();
 }
 
@@ -96,12 +135,12 @@ function toggleAxes(): void {
 
 function toggleRotationInfos(): void {
   showRotationInfos = !showRotationInfos;
-  setRotationInfos(showRotationInfos, false);
+  createRotationInfos(showRotationInfos, false);
 }
 
-function createCube(x: number, y: number, z: number): THREE.Mesh {
+function createSingleCube(x: number, y: number, z: number): THREE.Mesh {
   let cube: THREE.Mesh;
-  cube = new THREE.Mesh(geometry, basicMaterials);
+  cube = new THREE.Mesh(geometry, blackMaterial);
   cube.matrixAutoUpdate = false;
   cube.position.set(x, y, z);
   cube.updateMatrix();
@@ -110,34 +149,68 @@ function createCube(x: number, y: number, z: number): THREE.Mesh {
 }
 
 // the cube model (pieces) is simply the list of cube objects sorted by z,y,x ascending
-function createPieces(): void {
-  for (let i = -1; i <= 1; i++) {
-    for (let j = -1; j <= 1; j++) {
-      for (let k = -1; k <= 1; k++) {
-        let cube = createCube(k, j, i);
-        pieces.push(cube);
+function createAllCubes(): void {
+  rotPieces = [];
+  fixedPieces = [];
+  for (let z = -1; z <= 1; z++) {
+    for (let y = -1; y <= 1; y++) {
+      for (let x = -1; x <= 1; x++) {
+        let cube = createSingleCube(x, y, z);
+        rotPieces.push(cube);
+        fixedPieces.push(cube);
       }
     }
   }
-  updateCubeNumberTextures();
+  setAllCubeFaces();
 }
 
-function updateCubeNumberTextures(): void {
-  pieces.forEach((piece, index) => {
-    if (!showNumbers) {
-      piece.material = basicMaterials;
-      return;
-    }
+function setAllCubeFaces(): void {
+  if (showNumbers) {
+    setAllCubeNumbers();
+  } else {
+    setAllCubeColors();
+  }
+}
 
+function setAllCubeColors(): void {
+  for (let z = -1; z <= 1; z++) {
+    for (let y = -1; y <= 1; y++) {
+      for (let x = -1; x <= 1; x++) {
+        let index = (x+1) + (y+1)*3 + (z+1)*9;
+        let cube = fixedPieces[index];
+
+        let materials: THREE.MeshBasicMaterial[] = [];
+        for (let i = 0; i < 6; i++) {
+          materials.push(blackMaterial);
+        }
+        setCubeFaceColor(materials, x, 1, 0);
+        setCubeFaceColor(materials, y, 3, 2);
+        setCubeFaceColor(materials, z, 5, 4);
+        cube.material = materials;      
+      }
+    }
+  }
+}
+
+function setCubeFaceColor(materials: THREE.MeshBasicMaterial[], index: number, i1: number, i2: number): void {
+  if (index === -1) {
+    materials[i1] = basicMaterials[i1];
+  } else if (index === 1) {
+    materials[i2] = basicMaterials[i2];
+  }
+}
+
+function setAllCubeNumbers(): void {
+  rotPieces.forEach((piece, index) => {
     // Create a canvas and draw the index number on it
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     if (context) {
-      context.fillStyle = 'lightblue'; // Set the background color to light blue
-      context.fillRect(0, 0, canvas.width, canvas.height); // Fill the canvas with the background color
+      context.fillStyle = 'lightblue';
+      context.fillRect(0, 0, canvas.width, canvas.height); 
 
       context.font = '64px Arial';
-      context.fillStyle = 'black'; // Set the text color to black
+      context.fillStyle = 'black';
       context.fillText(index.toString(), canvas.width / 2, canvas.height / 2);
     }
 
@@ -211,7 +284,7 @@ function disposeMesh(mesh: THREE.Object3D): void {
   }
 }
 
-function setRotationInfos(visible: boolean, inverse: boolean): void {
+function createRotationInfos(visible: boolean, inverse: boolean): void {
   infoGroups.forEach((group) => {
     group.children.forEach((child) => {
       disposeMesh(child);
@@ -256,13 +329,6 @@ function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
   }
 }
 
-// function to set colors of pieces
-function setColors(colors: number[]): void {
-  pieces.forEach((piece, index) => {
-    piece.material = new THREE.MeshBasicMaterial({color: colors[index]});
-  });
-}
-
 function toggleHideObjects(objects: THREE.Mesh[]): void {
   objects.forEach((object) => {
     object.visible = !object.visible;
@@ -305,18 +371,15 @@ function getRotationData(key: string): rotationDataEntry {
 }
 
 function undoOperation(): void {
-  console.log("opsHistory: " + opsHistory);
   if (numRotAnims > 0 || opsHistory.length === 0 || isHideNext) {
     return; // no undo while an animation is running
   }
   let key = opsHistory.pop();
   if (key) {
     let undoKey = (key === key.toLowerCase()) ? key.toUpperCase() : key.toLowerCase();
-    console.log("key: " + key);
-    console.log("undoKey: " + undoKey);
-      rotate(undoKey);
+    rotate(undoKey);
+    key = opsHistory.pop(); // do not log the undo uperation
   }
-  let key = opsHistory.pop(); // do not log the undo uperation
 }
 
 function rotate(key: string): void {
@@ -326,7 +389,7 @@ function rotate(key: string): void {
   let {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
 
   if (isHideNext) {
-    toggleHideObjects(nums.map((index) => pieces[index])); // toggle hide state instead
+    toggleHideObjects(nums.map((index) => rotPieces[index])); // toggle hide state instead
     isHideNext = false;
     return;
   }
@@ -335,29 +398,40 @@ function rotate(key: string): void {
 
   let piecesToRotate = rotateModel(key, forward, nums);
   rotateGraphics(piecesToRotate, axis, (key === key.toLowerCase()) ? degrees : -degrees)
-  updateCubeNumberTextures();
+  setAllCubeFaces();
 }
 
 function rotateGraphics(pieces: THREE.Mesh[], axis: string, degrees: number): void {
   // rotate the selected pieces as animation
   pieces.forEach((piece) => {
-    const animObj =
-      {piece: piece, lerpFactor: 0, startMatrix: piece.matrixWorld.clone(), axis: axis, degrees: degrees};
+    const startMatrix = piece.matrixWorld.clone();
+    const animObj = {lerpFactor: 0};
 
     let tl = gsap.timeline();
     numRotAnims++;
     tl.to(animObj, {
       lerpFactor: 1, duration: 0.5, ease: "linear",
       onUpdate: () => {
-        animObj.piece.matrix.copy(animObj.startMatrix); // Reset the matrix to the start matrix (undo previous rotations)
-        piece.applyMatrix4(getRotationMatrix(axis, animObj.lerpFactor * animObj.degrees));
+        piece.matrix.copy(startMatrix); // Reset the matrix to the start matrix (undo previous rotations)
+        piece.applyMatrix4(getRotationMatrix(axis, animObj.lerpFactor * degrees));
         piece.matrixWorldNeedsUpdate = true;
       },
       onComplete: () => {
         numRotAnims--;
+        if(numRotAnims === 0 && opsTodo.length > 0) {
+          let op = opsTodo.pop();
+          if (op !== undefined) {
+            sleep(50).then(() => rotate(op));
+
+          }
+        }
       }
     });
   });
+}
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Mesh[] {
@@ -366,25 +440,25 @@ function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Mesh[
   let piecesToRotate: THREE.Mesh[] = []; // the pieces to rotate
   switch (key.toLowerCase()) {
     case "x":
-      piecesToRotate = pieces;
+      piecesToRotate = rotPieces;
       rotateModelSliceByKey("l", !keyLc);
       rotateModelSliceByKey("m", !keyLc);
       rotateModelSliceByKey("r", keyLc);
       break;
     case "y":
-      piecesToRotate = pieces;
+      piecesToRotate = rotPieces;
       rotateModelSliceByKey("u", keyLc);
       rotateModelSliceByKey("e", !keyLc);
       rotateModelSliceByKey("d", !keyLc);
       break;
     case "z":
-      piecesToRotate = pieces;
+      piecesToRotate = rotPieces;
       rotateModelSliceByKey("f", keyLc);
       rotateModelSliceByKey("s", keyLc);
       rotateModelSliceByKey("b", !keyLc);
       break;
     default:
-      piecesToRotate = nums.map((index) => pieces[index]);
+      piecesToRotate = nums.map((index) => rotPieces[index]);
       rotateModelSlice(nums, keyLc === forward);
   }
   return piecesToRotate;
@@ -398,28 +472,76 @@ function rotateModelSliceByKey(key: string, keyLc: boolean): void {
 function rotateModelSlice(nums: number[], rightRotate: boolean): void {
   // reflect the turn in the pieces list
   if (rightRotate) {
-    let tempA = pieces[nums[0]];
-    let tempB = pieces[nums[1]];
+    let tempA = rotPieces[nums[0]];
+    let tempB = rotPieces[nums[1]];
     for (let i = 0; i <= 5; i++) {
-      pieces[nums[i]] = pieces[nums[i + 2]];
+      rotPieces[nums[i]] = rotPieces[nums[i + 2]];
     }
-    pieces[nums[6]] = tempA;
-    pieces[nums[7]] = tempB;
+    rotPieces[nums[6]] = tempA;
+    rotPieces[nums[7]] = tempB;
   } else {
-    let tempA = pieces[nums[7]];
-    let tempB = pieces[nums[6]];
+    let tempA = rotPieces[nums[7]];
+    let tempB = rotPieces[nums[6]];
     for (let i = 5; i >= 0; i--) {
-      pieces[nums[i + 2]] = pieces[nums[i]];
+      rotPieces[nums[i + 2]] = rotPieces[nums[i]];
     }
-    pieces[nums[1]] = tempA;
-    pieces[nums[0]] = tempB;
+    rotPieces[nums[1]] = tempA;
+    rotPieces[nums[0]] = tempB;
   }
+}
+
+function shuffle(): void {
+  let moves = ["l", "m", "r", "u", "e", "d", "b", "s", "f"];
+  for (let i = 0; i < 20; i++) {
+    let index = Math.floor(Math.random() * moves.length * 2);
+    if (index >= moves.length) {
+      index -= moves.length;
+      moves[index] = moves[index].toUpperCase();
+    }
+    opsTodo.push(moves[index]);
+  }
+  let op = opsTodo.pop();
+  if (op !== undefined) {
+    rotate(op);
+  }
+}
+
+function insetCenters(): void {
+  let centerPieces = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
+  let group = new THREE.Group();
+  centerPieces.forEach((index) => {
+    group.add(rotPieces[index]);
+  });
+  group.position.set(0, 0, 0);
+  scene.add(group);
+
+  const animObj =
+  {lerpFactor: 1};
+
+  let tl = gsap.timeline();
+  numRotAnims++;
+  tl.to(animObj, {
+    lerpFactor: 0, duration: 0.5, ease: "linear",
+    onUpdate: () => {
+      // scale the group to the value of lerpFactor
+      group.scale.set(animObj.lerpFactor, animObj.lerpFactor, animObj.lerpFactor);
+    },
+    onComplete: () => {
+      numRotAnims--;
+    }
+  });
 }
 
 function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case "F1":
       toggleRotationInfos()
+      break;
+    case "F2":
+      insetCenters();
+      break;
+    case "F9":
+      shuffle();
       break;
     case "F10":
       resetMain();
@@ -433,13 +555,10 @@ function onKeyDown(event: KeyboardEvent): void {
     case "a":
       toggleAxes();
       break;
-    case "c":
-      setColors([0x808080]);
-      break;
     case "n":
     case "N":
       showNumbers = !showNumbers;
-      updateCubeNumberTextures();
+      setAllCubeFaces();
       break;
     case "h":
     case "H":
@@ -504,10 +623,10 @@ function onKeyDown(event: KeyboardEvent): void {
       cube.rotation.z -= 0.1;
       cube.updateMatrix();
       break;
-    case "0":
+    case "v":
       controls.reset();
       break;
-    case "1":
+    case "0":
       cube.rotation.x = 0;
       cube.rotation.y = 0;
       cube.rotation.z = 0;
@@ -531,7 +650,7 @@ document.addEventListener("keydown", onKeyDown);
 document.addEventListener('keydown', function(event) {
   if (event.shiftKey) {
     if (showRotationInfos) {
-      setRotationInfos(true, true);
+      createRotationInfos(true, true);
     }
   }
 });
@@ -539,7 +658,7 @@ document.addEventListener('keydown', function(event) {
 document.addEventListener('keyup', function(event) {
   if (event.key === 'Shift') {
     if (showRotationInfos) {
-      setRotationInfos(true, false);
+      createRotationInfos(true, false);
     }
   }
 });
