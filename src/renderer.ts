@@ -509,7 +509,7 @@ function shuffle(): void {
 
 function scaleTo2x2(inverse: boolean): Promise<void> {
   if (is2x2 !== inverse) {
-    return new Promise((resolve, reject) => reject());
+    return new Promise((resolve, reject) => {reject()});
   }
   return new Promise((resolve) => {
     let centerIndexes = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
@@ -524,27 +524,27 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
        centerPieces.forEach((piece) => { piece.visible = true; });
     }
 
-    let lerpStart = 1;
-    let lerpEnd = inverse ? 4 : 0.25;
+    let lerpCenterScale = inverse ? 1/0.8 : 0.8;
     let lerpCornerScale = inverse ? 1/1.5 : 1.5;
     let lerpCornerTranslation = inverse ? 0.75 : -0.5;
 
-    const animObj = {lerpFactor: lerpStart, lerpCornerScale: 1, lerpCornerTranslation: 0};
+    const animObj = {lerpCenterScale: 1, lerpCornerScale: 1, lerpCornerTranslation: 0};
 
     let tl = gsap.timeline();
     numAnims++;
     tl.to(animObj, {
-      lerpFactor: lerpEnd, lerpCornerScale: lerpCornerScale, lerpCornerTranslation: lerpCornerTranslation,  duration:1, ease: "linear",
+      lerpCenterScale: lerpCenterScale, lerpCornerScale: lerpCornerScale, lerpCornerTranslation: lerpCornerTranslation,  duration:0.5, ease: "linear",
       onUpdate: () => {
+          // Scale the center pieces
          centerPieces.forEach((piece, index) => {
            piece.matrix.copy(centerStartMatrices[index]); // Reset the matrix to the start matrix (undo previous scale)
-           piece.applyMatrix4(new THREE.Matrix4().makeScale(animObj.lerpFactor, animObj.lerpFactor, animObj.lerpFactor));
+           piece.applyMatrix4(new THREE.Matrix4().makeScale(animObj.lerpCenterScale, animObj.lerpCenterScale, animObj.lerpCenterScale));
            piece.matrixWorldNeedsUpdate = true;
          });
 
         // Scale and move the corner pieces
         cornerPieces.forEach((piece, index) => {
-          piece.matrix.copy(cornerStartMatrices[index]); // Reset the matrix to the start matrix (undo previous scale)
+          piece.matrix.copy(cornerStartMatrices[index]); // Reset the matrix to the start matrix (undo previous transforms)
           let translationVector = piece.position.clone().normalize().multiplyScalar(animObj.lerpCornerTranslation * Math.sqrt(3));
           piece.applyMatrix4(new THREE.Matrix4().makeScale(animObj.lerpCornerScale, animObj.lerpCornerScale, animObj.lerpCornerScale)
             .multiply(new THREE.Matrix4().makeTranslation(translationVector.x, translationVector.y, translationVector.z)));
@@ -563,26 +563,6 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
   });
 }
 
-function scaleAndMoveCorners(scaleFactor: number, translationFactor: number): void {
-    let cornerIndexes = [0,2,6,8,18,20,24,26]; // the corner pieces
-    cornerIndexes.forEach(index => {
-        let cube = rotPieces[index];
-        //cube.material = blackMaterial;
-
-        // Scale the cube
-        cube.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
-        // Calculate new position
-        let newPosition = cube.position.clone().normalize().multiplyScalar(translationFactor);
-
-        // Move the cube towards (0,0,0)
-        cube.position.sub(newPosition);
-
-        // Manually update the transformation matrix
-        cube.updateMatrix();
-    });
-}
-
 function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case "F1":
@@ -594,9 +574,6 @@ function onKeyDown(event: KeyboardEvent): void {
     case "F3":
       scaleTo2x2(true);
       break;
-    case "F4":
-        scaleAndMoveCorners(1.5, 0.5);
-        break;
     case "F9":
       shuffle();
       break;
