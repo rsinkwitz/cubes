@@ -24,8 +24,10 @@ let animationPaused: boolean = true;
 let showNumbers: boolean = false;
 let showAxes: boolean = false;
 let showRotationInfos: boolean = false;
+let isWireframe: boolean = false;
 let isHideNext: boolean = false;
 let is2x2: boolean = false;
+let testIndex: number = 0;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
@@ -45,6 +47,7 @@ const basicMaterials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({color: 0x0080ff})  // back   blue
 ];
 const blackMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x202020});
+const wireframeMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x000000, wireframe: true});
 
 function init(): void {
   scene = new THREE.Scene();
@@ -138,39 +141,95 @@ function toggleRotationInfos(): void {
   createRotationInfos(showRotationInfos, false);
 }
 
-function createGeometry() {
+function toggleWireframe(): void {
+  isWireframe = !isWireframe;
+  setAllCubeFaces();
+}
+
+const meshCornerLinePositions = [
+  [6,14,23], // 0
+  [3,15,22], // 1
+  [4,8,21], // 2
+  [1,9,20], // 3
+  [7,12,18], // 4
+  [2,13,19], // 5
+  [5,10,16], // 6
+  [0,11,17], // 7
+];
+
+interface MorphMod {
+  idx: number; // index of point in position array
+  mod: THREE.Vector3; // new value to apply to the point (99 = no change)
+}
+
+interface MorphModMap {
+  [key: number]: MorphMod[];
+}
+
+const oneSixth = 1/6;
+const morphMods: MorphModMap = {};
+// morphMods[0] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
+// morphMods[2] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
+// morphMods[6] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
+// morphMods[8] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
+// morphMods[18] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
+// morphMods[20] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
+morphMods[24] = [{idx: 6, mod: new THREE.Vector3(oneSixth, -oneSixth, -oneSixth)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}, {idx: 7, mod: new THREE.Vector3(99, 0, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}];
+morphMods[26] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}, {idx: 5, mod: new THREE.Vector3(0, 99, 0)}, ];
+
+function createGeometry(cubeIndex: number): THREE.BoxGeometry|null{
   const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+  const orgPositions = geometry.attributes.position;
+  let newPositions = orgPositions.clone();
 
-  // create an empty array to  hold targets for the attribute we want to morph
-  // morphing positions and normals is supported
-  geometry.morphAttributes.position = [];
+  if (typeof morphMods[cubeIndex] !== 'undefined') {
+    morphMods[cubeIndex].forEach((mod) => {
+      console.log("modifying idx=" + cubeIndex + "with pos: "+ mod.idx);
+      meshCornerLinePositions[mod.idx].forEach((clPosition) => {
+        if (mod.mod.x !== 99) {
+          newPositions.setX(clPosition, mod.mod.x);
+        }
+        if (mod.mod.y !== 99) {
+          newPositions.setY(clPosition, mod.mod.y);
+        }
+        if (mod.mod.z !== 99) {
+          newPositions.setZ(clPosition, mod.mod.z);
+        }  
+      });
+    });
+    geometry.morphAttributes.position = [];
+    geometry.morphAttributes.position[ 0 ] = newPositions;
+    return geometry;
+  } 
+  return geometry;
 
-  // the original positions of the cube's vertices
-  const positionAttribute = geometry.attributes.position;
+  // const twistPositions: number[] = [];
+  // const direction = new THREE.Vector3( 1, 0, 0 );
+  // const vertex = new THREE.Vector3();
 
-  // for the second morph target, we'll twist the cubes vertices
-  const twistPositions: number[] = [];
-  const direction = new THREE.Vector3( 1, 0, 0 );
-  const vertex = new THREE.Vector3();
+  // for ( let i = 0; i < orgPositions.count; i ++ ) {
+  //   const x = orgPositions.getX( i );
+  //   const y = orgPositions.getY( i );
+  //   const z = orgPositions.getZ( i );
 
-  for ( let i = 0; i < positionAttribute.count; i ++ ) {
-    const x = positionAttribute.getX( i );
-    const y = positionAttribute.getY( i );
-    const z = positionAttribute.getZ( i );
+  //   // stretch along the x-axis so we can see the twist better
+  //   vertex.set( x * 2, y, z );
+  //   vertex.applyAxisAngle( direction, Math.PI * x / 2 ).toArray( twistPositions, twistPositions.length );
+  // }
 
-    // stretch along the x-axis so we can see the twist better
-    vertex.set( x * 2, y, z );
-    vertex.applyAxisAngle( direction, Math.PI * x / 2 ).toArray( twistPositions, twistPositions.length );
-  }
-
-  // add the twisted positions as morph target
-  geometry.morphAttributes.position[ 0 ] = new THREE.Float32BufferAttribute( twistPositions, 3 );
-
+  // geometry.morphAttributes.position = [];
+  // geometry.morphAttributes.position[ 0 ] = new THREE.Float32BufferAttribute( twistPositions, 3 );
   return geometry;
 }
 
 function createSingleCube(x: number, y: number, z: number): THREE.Mesh {
-  const geometry: THREE.BoxGeometry = createGeometry();
+  let geometry: THREE.BoxGeometry| null = createGeometry((x+1) + (y+1) * 3 + (z+1) * 9);
+  if (geometry === null) {
+    geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+    let cube = new THREE.Mesh(geometry, blackMaterial);
+    cube.visible = false;
+    return cube;
+  }
   let cube = new THREE.Mesh(geometry, blackMaterial);
   cube.matrixAutoUpdate = false;
   cube.position.set(x, y, z);
@@ -198,9 +257,17 @@ function createAllCubes(): void {
 function setAllCubeFaces(): void {
   if (showNumbers) {
     setAllCubeNumbers();
+  } else if (isWireframe) {
+    setAllCubeWireframes();
   } else {
     setAllCubeColors();
   }
+}
+
+function setAllCubeWireframes(): void {
+  fixedPieces.forEach((piece) => {
+    piece.material = wireframeMaterial;      
+  });
 }
 
 function setAllCubeColors(): void {
@@ -593,23 +660,19 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
   });
 }
 
-function testGeometryMod(): void {
-  let ftrIndex = 26;
-  let ftrPiece = fixedPieces[ftrIndex];
-  if (typeof ftrPiece === 'undefined') {
-    console.log("ftrPiece is undefined");
-  } else {
-    const animObj = {lerpFactor: 0};
-    let tl = gsap.timeline();
-    tl.to(animObj, {
-      lerpFactor: 1, duration: 1, ease: "linear",
-      onUpdate: () => {
-        if ( typeof ftrPiece.morphTargetInfluences !== 'undefined') {
-          ftrPiece.morphTargetInfluences[ 0 ] = animObj.lerpFactor;
-        }
-      }
-    });
-  }
+function morph(from: number, to: number): void {
+  const animObj = {lerpFactor: from};
+  let tl = gsap.timeline();
+  tl.to(animObj, {
+    lerpFactor: to, duration: 1, ease: "linear",
+    onUpdate: () => {
+      fixedPieces.forEach((piece) => {
+        if ( typeof piece.morphTargetInfluences !== 'undefined') {
+          piece.morphTargetInfluences[ 0 ] = animObj.lerpFactor;
+        }  
+      });
+    }
+  });
 }
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -624,7 +687,13 @@ function onKeyDown(event: KeyboardEvent): void {
       scaleTo2x2(true);
       break;
     case "F4":
-      testGeometryMod();
+      morph(0, 1);
+      break;
+    case "F5":
+      morph(1, 0);
+      break;
+    case "F6":
+      toggleWireframe();
       break;
     case "F9":
       shuffle();
@@ -686,12 +755,14 @@ function onKeyDown(event: KeyboardEvent): void {
       break;
 
       case "ArrowUp":
-      cube.rotation.x += 0.1;
-      cube.updateMatrix();
+      // cube.rotation.x += 0.1;
+      // cube.updateMatrix();
+      testIndex++;
       break;
     case "ArrowDown":
-      cube.rotation.x -= 0.1;
-      cube.updateMatrix();
+      // cube.rotation.x -= 0.1;
+      // cube.updateMatrix();
+      testIndex--;
       break;
     case "ArrowLeft":
       cube.rotation.y += 0.1;
