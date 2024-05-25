@@ -36,7 +36,6 @@ let infoGroups: THREE.Group[] = [];
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
 
-const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
 const basicMaterials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({color: 0xff0000}), // right  red
   new THREE.MeshBasicMaterial({color: 0xFFC700}), // left   orange
@@ -139,9 +138,40 @@ function toggleRotationInfos(): void {
   createRotationInfos(showRotationInfos, false);
 }
 
+function createGeometry() {
+  const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+
+  // create an empty array to  hold targets for the attribute we want to morph
+  // morphing positions and normals is supported
+  geometry.morphAttributes.position = [];
+
+  // the original positions of the cube's vertices
+  const positionAttribute = geometry.attributes.position;
+
+  // for the second morph target, we'll twist the cubes vertices
+  const twistPositions: number[] = [];
+  const direction = new THREE.Vector3( 1, 0, 0 );
+  const vertex = new THREE.Vector3();
+
+  for ( let i = 0; i < positionAttribute.count; i ++ ) {
+    const x = positionAttribute.getX( i );
+    const y = positionAttribute.getY( i );
+    const z = positionAttribute.getZ( i );
+
+    // stretch along the x-axis so we can see the twist better
+    vertex.set( x * 2, y, z );
+    vertex.applyAxisAngle( direction, Math.PI * x / 2 ).toArray( twistPositions, twistPositions.length );
+  }
+
+  // add the twisted positions as morph target
+  geometry.morphAttributes.position[ 0 ] = new THREE.Float32BufferAttribute( twistPositions, 3 );
+
+  return geometry;
+}
+
 function createSingleCube(x: number, y: number, z: number): THREE.Mesh {
-  let cube: THREE.Mesh;
-  cube = new THREE.Mesh(geometry, blackMaterial);
+  const geometry: THREE.BoxGeometry = createGeometry();
+  let cube = new THREE.Mesh(geometry, blackMaterial);
   cube.matrixAutoUpdate = false;
   cube.position.set(x, y, z);
   cube.updateMatrix();
@@ -563,6 +593,25 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
   });
 }
 
+function testGeometryMod(): void {
+  let ftrIndex = 26;
+  let ftrPiece = fixedPieces[ftrIndex];
+  if (typeof ftrPiece === 'undefined') {
+    console.log("ftrPiece is undefined");
+  } else {
+    const animObj = {lerpFactor: 0};
+    let tl = gsap.timeline();
+    tl.to(animObj, {
+      lerpFactor: 1, duration: 1, ease: "linear",
+      onUpdate: () => {
+        if ( typeof ftrPiece.morphTargetInfluences !== 'undefined') {
+          ftrPiece.morphTargetInfluences[ 0 ] = animObj.lerpFactor;
+        }
+      }
+    });
+  }
+}
+
 function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case "F1":
@@ -573,6 +622,9 @@ function onKeyDown(event: KeyboardEvent): void {
       break;
     case "F3":
       scaleTo2x2(true);
+      break;
+    case "F4":
+      testGeometryMod();
       break;
     case "F9":
       shuffle();
