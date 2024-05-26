@@ -30,6 +30,7 @@ let showRotationInfos: boolean = false;
 let isWireframe: boolean = false;
 let isHideNext: boolean = false;
 let is2x2: boolean = false;
+let isPyra: boolean = false;
 let testIndex: number = 0;
 let isShowOneCube: boolean = false;
 
@@ -181,10 +182,11 @@ interface MorphModMap {
 
 const oneSixth = 1/6;
 const morphMods: MorphModMap = {};
-// morphMods[0] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
-// morphMods[2] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
-// morphMods[6] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
-// morphMods[8] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
+morphMods[0] = [{idx: 1, mod: new THREE.Vector3(99, 0, 0)}, {idx: 2, mod: new THREE.Vector3(0, 99, 0)}, {idx: 4, mod: new THREE.Vector3(0, 0, 99)}, {idx: 0, mod: new THREE.Vector3(oneSixth, oneSixth, oneSixth)}];
+morphMods[2] = [{idx: 0, mod: new THREE.Vector3(99, 0, 0)}, {idx: 3, mod: new THREE.Vector3(0, 99, 0)}, {idx: 5, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[6] = [{idx: 3, mod: new THREE.Vector3(99, 0, 0)}, {idx: 0, mod: new THREE.Vector3(0, 99, 0)}, {idx: 6, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[8] = [{idx: 2, mod: new THREE.Vector3(99, 0, 0)}, {idx: 1, mod: new THREE.Vector3(0, 99, 0)}, {idx: 7, mod: new THREE.Vector3(0, 0, 99)}, {idx: 3, mod: new THREE.Vector3(-oneSixth, -oneSixth, oneSixth)}];
+
 morphMods[18] = [{idx: 5, mod: new THREE.Vector3(99, 0, 0)}, {idx: 6, mod: new THREE.Vector3(0, 99, 0)}, {idx: 0, mod: new THREE.Vector3(0, 0, 99)}];
 morphMods[20] = [{idx: 4, mod: new THREE.Vector3(99, 0, 0)}, {idx: 7, mod: new THREE.Vector3(0, 99, 0)}, {idx: 1, mod: new THREE.Vector3(0, 0, 99)}, {idx: 5, mod: new THREE.Vector3(-oneSixth, oneSixth, -oneSixth)}];
 morphMods[24] = [{idx: 7, mod: new THREE.Vector3(99, 0, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}, {idx: 6, mod: new THREE.Vector3(oneSixth, -oneSixth, -oneSixth)}];
@@ -708,7 +710,7 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
   });
 }
 
-function morph(from: number, to: number): void {
+function morphToPyra(from: number, to: number): void {
   const animObj = {lerpFactor: from};
   let tl = gsap.timeline();
   tl.to(animObj, {
@@ -735,10 +737,16 @@ function onKeyDown(event: KeyboardEvent): void {
       scaleTo2x2(true);
       break;
     case "F4":
-      morph(0, 1);
+      if (!isPyra) {
+        morphToPyra(0, 1);
+        isPyra= true;
+      }
       break;
     case "F5":
-      morph(1, 0);
+      if (isPyra) {
+        morphToPyra(1, 0);
+        isPyra = false;
+      }
       break;
     case "w":
     case "W":
