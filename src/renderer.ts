@@ -5,6 +5,9 @@ import {Font, FontLoader} from 'three/examples/jsm/loaders/FontLoader';
 
 import gsap from "gsap";
 
+
+import { BoxGeometryEnh } from './BoxGeometryEnh';
+
 declare global {
   interface Window {
     ipcRenderer: {
@@ -28,6 +31,7 @@ let isWireframe: boolean = false;
 let isHideNext: boolean = false;
 let is2x2: boolean = false;
 let testIndex: number = 0;
+let isShowOneCube: boolean = false;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
@@ -136,6 +140,15 @@ function toggleAxes(): void {
   });
 }
 
+function toggleShowOneCube(): void {
+  isShowOneCube = !isShowOneCube;
+  rotPieces.forEach((piece,index) => {
+    if (index !== 26) {
+      piece.visible = isShowOneCube;
+    }
+  });
+}
+
 function toggleRotationInfos(): void {
   showRotationInfos = !showRotationInfos;
   createRotationInfos(showRotationInfos, false);
@@ -177,8 +190,8 @@ const morphMods: MorphModMap = {};
 morphMods[24] = [{idx: 6, mod: new THREE.Vector3(oneSixth, -oneSixth, -oneSixth)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}, {idx: 7, mod: new THREE.Vector3(99, 0, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}];
 morphMods[26] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}, {idx: 5, mod: new THREE.Vector3(0, 99, 0)}, ];
 
-function createGeometry(cubeIndex: number): THREE.BoxGeometry|null{
-  const geometry: THREE.BoxGeometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+function createGeometry(cubeIndex: number): BoxGeometryEnh|null{
+  const geometry: BoxGeometryEnh = new BoxGeometryEnh(0.95, 0.95, 0.95);
   const orgPositions = geometry.attributes.position;
   let newPositions = orgPositions.clone();
 
@@ -223,9 +236,9 @@ function createGeometry(cubeIndex: number): THREE.BoxGeometry|null{
 }
 
 function createSingleCube(x: number, y: number, z: number): THREE.Mesh {
-  let geometry: THREE.BoxGeometry| null = createGeometry((x+1) + (y+1) * 3 + (z+1) * 9);
+  let geometry: BoxGeometryEnh| null = createGeometry((x+1) + (y+1) * 3 + (z+1) * 9);
   if (geometry === null) {
-    geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+    geometry = new BoxGeometryEnh(0.95, 0.95, 0.95);
     let cube = new THREE.Mesh(geometry, blackMaterial);
     cube.visible = false;
     return cube;
@@ -236,6 +249,52 @@ function createSingleCube(x: number, y: number, z: number): THREE.Mesh {
   cube.updateMatrix();
   scene.add(cube);
   return cube;
+}
+
+function usage(): void {
+  // Usage
+const geometry = new BoxGeometryEnh(1, 1, 1);
+}
+
+function createNewCube(x: number, y: number, z: number): THREE.Object3D {
+  const width = 0.5;
+  const vertices = [
+    -width, -width,  -width, // v0
+     width, -width,  -width, // v1
+    -width,  width,  -width, // v2
+     width,  width,  -width, // v3
+    -width, -width,  width, // v4
+     width, -width,  width, // v5
+    -width,  width,  width, // v6
+     width,  width,  width, // v7
+  ];
+  
+  const indicesList = [
+    [7, 5, 1, 	7, 1, 3], // right face
+    [6, 2, 4, 	2, 0, 4], // left face
+    [6, 7, 2, 	7, 3, 2], // top face
+    [0, 1, 4, 	5, 4, 1], // bottom face
+    [4, 5, 7, 	7, 6, 4], // front face
+    [2, 3, 1, 	1, 0, 2], // back face
+  ];
+  
+  const group = new THREE.Group();
+  indicesList.forEach((faceIndices, i) => {
+    const geometry = new THREE.BufferGeometry();
+  
+    geometry.setIndex( faceIndices );
+    geometry.setAttribute( 'position', new THREE.BufferAttribute( new Float32Array(vertices), 3 ) );
+  
+    const mesh = new THREE.Mesh( geometry, basicMaterials[i] );
+  
+    geometry.computeVertexNormals();
+    group.add(mesh);
+    
+    const edges = new THREE.EdgesGeometry( geometry, 0 ); 
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0 } ) ); 
+    group.add( line );
+  });
+  return group;  
 }
 
 // the cube model (pieces) is simply the list of cube objects sorted by z,y,x ascending
@@ -692,8 +751,9 @@ function onKeyDown(event: KeyboardEvent): void {
     case "F5":
       morph(1, 0);
       break;
-    case "F6":
-      toggleWireframe();
+    case "w":
+    case "W":
+        toggleWireframe();
       break;
     case "F9":
       shuffle();
@@ -718,6 +778,9 @@ function onKeyDown(event: KeyboardEvent): void {
     case "h":
     case "H":
       isHideNext = true;
+      break;
+    case "1":
+      toggleShowOneCube();
       break;
 
     case "l": // left
