@@ -6,9 +6,9 @@ import { Vector3 } from 'three/src/math/Vector3.js';
 
 export class BoxGeometryEnh extends BufferGeometry {
 	type: string;
-	parameters: { width: number; height: number; depth: number; widthSegments: number; heightSegments: number; depthSegments: number; };
+	parameters: { width: number; height: number; depth: number; widthSegments: number; heightSegments: number; depthSegments: number; diagFocus: number};
 
-	constructor( width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1 ) {
+	constructor( width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1, diagFocus = 0 ) {
 
 		super();
 
@@ -20,7 +20,8 @@ export class BoxGeometryEnh extends BufferGeometry {
 			depth: depth,
 			widthSegments: widthSegments,
 			heightSegments: heightSegments,
-			depthSegments: depthSegments
+			depthSegments: depthSegments,
+			diagFocus: diagFocus
 		};
 
 		const scope = this;
@@ -43,14 +44,25 @@ export class BoxGeometryEnh extends BufferGeometry {
 		let numberOfVertices = 0;
 		let groupStart = 0;
 
+		// cubes with special diagonal focus towards two corners
+		const diagFocusLists = [
+			//  red, orange, white, yellow, green, blue
+			[false,false,false,false,false,false],  // all other cubes
+			[true,false,true,false,false,true],	    // cube 26
+			[false,true,true,false,false,false],  // cube 6
+			[false,true,false,true,false,false],    // cube 18
+			[true,false,false,true,true,false]   // cube 2
+		];
+		const otherDiagList = diagFocusLists[diagFocus];
+
 		// build each side of the box geometry
 
-		buildPlane( 'z', 'y', 'x', - 1, - 1, depth, height, width, depthSegments, heightSegments, true, 0 ); // px
-		buildPlane( 'z', 'y', 'x', 1, - 1, depth, height, - width, depthSegments, heightSegments, false, 1 ); // nx
-		buildPlane( 'x', 'z', 'y', 1, 1, width, depth, height, widthSegments, depthSegments, true, 2 ); // py
-		buildPlane( 'x', 'z', 'y', 1, - 1, width, depth, - height, widthSegments, depthSegments, false, 3 ); // ny
-		buildPlane( 'x', 'y', 'z', 1, - 1, width, height, depth, widthSegments, heightSegments, false, 4 ); // pz
-		buildPlane( 'x', 'y', 'z', - 1, - 1, width, height, - depth, widthSegments, heightSegments, true, 5 ); // nz
+		buildPlane( 'z', 'y', 'x', - 1, - 1, depth, height, width, depthSegments, heightSegments, otherDiagList[0], 0 ); // px
+		buildPlane( 'z', 'y', 'x', 1, - 1, depth, height, - width, depthSegments, heightSegments, otherDiagList[1], 1 ); // nx
+		buildPlane( 'x', 'z', 'y', 1, 1, width, depth, height, widthSegments, depthSegments, otherDiagList[2], 2 ); // py
+		buildPlane( 'x', 'z', 'y', 1, - 1, width, depth, - height, widthSegments, depthSegments, otherDiagList[3], 3 ); // ny
+		buildPlane( 'x', 'y', 'z', 1, - 1, width, height, depth, widthSegments, heightSegments, otherDiagList[4], 4 ); // pz
+		buildPlane( 'x', 'y', 'z', - 1, - 1, width, height, - depth, widthSegments, heightSegments, otherDiagList[5], 5 ); // nz
 
 		// build geometry
 

@@ -185,13 +185,20 @@ const morphMods: MorphModMap = {};
 // morphMods[2] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
 // morphMods[6] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
 // morphMods[8] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
-// morphMods[18] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
-// morphMods[20] = [{idx: 0, mod: new THREE.Vector3(99, 99, 99)}, {idx: 1, mod: new THREE.Vector3(99, 99, 99)}, {idx: 2, mod: new THREE.Vector3(99, 99, 99)}, {idx: 3, mod: new THREE.Vector3(99, 99, 99)}];
-morphMods[24] = [{idx: 6, mod: new THREE.Vector3(oneSixth, -oneSixth, -oneSixth)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}, {idx: 7, mod: new THREE.Vector3(99, 0, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}];
-morphMods[26] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}, {idx: 5, mod: new THREE.Vector3(0, 99, 0)}, ];
+morphMods[18] = [{idx: 5, mod: new THREE.Vector3(99, 0, 0)}, {idx: 6, mod: new THREE.Vector3(0, 99, 0)}, {idx: 0, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[20] = [{idx: 4, mod: new THREE.Vector3(99, 0, 0)}, {idx: 7, mod: new THREE.Vector3(0, 99, 0)}, {idx: 1, mod: new THREE.Vector3(0, 0, 99)}, {idx: 5, mod: new THREE.Vector3(-oneSixth, oneSixth, -oneSixth)}];
+morphMods[24] = [{idx: 7, mod: new THREE.Vector3(99, 0, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}, {idx: 6, mod: new THREE.Vector3(oneSixth, -oneSixth, -oneSixth)}];
+morphMods[26] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 5, mod: new THREE.Vector3(0, 99, 0)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}];
 
-function createGeometry(cubeIndex: number): BoxGeometryEnh|null{
-  const geometry: BoxGeometryEnh = new BoxGeometryEnh(0.95, 0.95, 0.95);
+function createGeometry(cubeIndex: number): BoxGeometryEnh {
+  const specialDiagFocus = new Map();
+  specialDiagFocus.set(26, 1);
+  specialDiagFocus.set(18, 3);
+  specialDiagFocus.set(6, 2);
+  specialDiagFocus.set(2, 4);
+  const diagFocus = specialDiagFocus.get(cubeIndex) || 0;
+
+  const geometry: BoxGeometryEnh = new BoxGeometryEnh(0.95, 0.95, 0.95, 1, 1, 1, diagFocus);
   const orgPositions = geometry.attributes.position;
   let newPositions = orgPositions.clone();
 
@@ -214,24 +221,6 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh|null{
     geometry.morphAttributes.position[ 0 ] = newPositions;
     return geometry;
   } 
-  return geometry;
-
-  // const twistPositions: number[] = [];
-  // const direction = new THREE.Vector3( 1, 0, 0 );
-  // const vertex = new THREE.Vector3();
-
-  // for ( let i = 0; i < orgPositions.count; i ++ ) {
-  //   const x = orgPositions.getX( i );
-  //   const y = orgPositions.getY( i );
-  //   const z = orgPositions.getZ( i );
-
-  //   // stretch along the x-axis so we can see the twist better
-  //   vertex.set( x * 2, y, z );
-  //   vertex.applyAxisAngle( direction, Math.PI * x / 2 ).toArray( twistPositions, twistPositions.length );
-  // }
-
-  // geometry.morphAttributes.position = [];
-  // geometry.morphAttributes.position[ 0 ] = new THREE.Float32BufferAttribute( twistPositions, 3 );
   return geometry;
 }
 
