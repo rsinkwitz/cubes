@@ -186,14 +186,26 @@ interface MorphModMap {
 const oneSixth = 1/6;
 const morphMods: MorphModMap = {};
 morphMods[0] = [{idx: 1, mod: new THREE.Vector3(99, 0, 0)}, {idx: 2, mod: new THREE.Vector3(0, 99, 0)}, {idx: 4, mod: new THREE.Vector3(0, 0, 99)}, {idx: 0, mod: new THREE.Vector3(oneSixth, oneSixth, oneSixth)}];
+morphMods[1] = [{idx: 0, mod: new THREE.Vector3(99, 0, 0)}, {idx: 1, mod: new THREE.Vector3(99, 0, 0)}];
 morphMods[2] = [{idx: 0, mod: new THREE.Vector3(99, 0, 0)}, {idx: 3, mod: new THREE.Vector3(0, 99, 0)}, {idx: 5, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[3] = [{idx: 2, mod: new THREE.Vector3(0, 99, 0)}, {idx: 0, mod: new THREE.Vector3(0, 99, 0)}];
+morphMods[5] = [{idx: 3, mod: new THREE.Vector3(0, 99, 0)}, {idx: 1, mod: new THREE.Vector3(0, 99, 0)}];
 morphMods[6] = [{idx: 3, mod: new THREE.Vector3(99, 0, 0)}, {idx: 0, mod: new THREE.Vector3(0, 99, 0)}, {idx: 6, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[7] = [{idx: 2, mod: new THREE.Vector3(99, 0, 0)}, {idx: 3, mod: new THREE.Vector3(99, 0, 0)}];
 morphMods[8] = [{idx: 2, mod: new THREE.Vector3(99, 0, 0)}, {idx: 1, mod: new THREE.Vector3(0, 99, 0)}, {idx: 7, mod: new THREE.Vector3(0, 0, 99)}, {idx: 3, mod: new THREE.Vector3(-oneSixth, -oneSixth, oneSixth)}];
 
+morphMods[9] = [{idx: 4, mod: new THREE.Vector3(0, 0, 99)}, {idx: 0, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[11] = [{idx: 5, mod: new THREE.Vector3(0, 0, 99)}, {idx: 1, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[15] = [{idx: 6, mod: new THREE.Vector3(0, 0, 99)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[17] = [{idx: 7, mod: new THREE.Vector3(0, 0, 99)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}];
+
 morphMods[18] = [{idx: 5, mod: new THREE.Vector3(99, 0, 0)}, {idx: 6, mod: new THREE.Vector3(0, 99, 0)}, {idx: 0, mod: new THREE.Vector3(0, 0, 99)}];
-morphMods[19] = [{idx: 4, mod: new THREE.Vector3(99, -0.5, 99)}, {idx: 5, mod: new THREE.Vector3(99, -0.5, 99)}];
+morphMods[19] = [{idx: 4, mod: new THREE.Vector3(99, 0, 0)}, {idx: 5, mod: new THREE.Vector3(99, 0, 0)}];
 morphMods[20] = [{idx: 4, mod: new THREE.Vector3(99, 0, 0)}, {idx: 7, mod: new THREE.Vector3(0, 99, 0)}, {idx: 1, mod: new THREE.Vector3(0, 0, 99)}, {idx: 5, mod: new THREE.Vector3(-oneSixth, oneSixth, -oneSixth)}];
+morphMods[21] = [{idx: 6, mod: new THREE.Vector3(0, 99, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}];
+morphMods[23] = [{idx: 5, mod: new THREE.Vector3(0, 99, 0)}, {idx: 7, mod: new THREE.Vector3(0, 99, 0)}];
 morphMods[24] = [{idx: 7, mod: new THREE.Vector3(99, 0, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}, {idx: 6, mod: new THREE.Vector3(oneSixth, -oneSixth, -oneSixth)}];
+morphMods[25] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 7, mod: new THREE.Vector3(99, 0, 0)}];
 morphMods[26] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 5, mod: new THREE.Vector3(0, 99, 0)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}];
 
 function createGeometry(cubeIndex: number): BoxGeometryEnh {
@@ -281,7 +293,7 @@ function setAllCubeColors(): void {
         let cube = fixedPieces[index];
 
         let materials: THREE.MeshBasicMaterial[] = [];
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
         setCubeFaceColor(materials, x, 1, 0);
@@ -296,7 +308,7 @@ function setAllCubeColors(): void {
 function setCubeFaceColor(materials: THREE.MeshBasicMaterial[], index: number, i1: number, i2: number): void {
   if (index === -1) {
     materials[i1*2] = basicMaterials[i1];
-    materials[i1*2+1] = grayMaterial;// basicMaterials[i1];
+    materials[i1*2+1] = grayMaterial; // basicMaterials[i1];
   } else if (index === 1) {
     materials[i2*2] = basicMaterials[i2];
     materials[i2*2+1] = grayMaterial; // basicMaterials[i2];
@@ -320,9 +332,7 @@ function setAllCubeNumbers(): void {
     const texture = new THREE.Texture(canvas);
     texture.needsUpdate = true;
     const mat = new THREE.MeshBasicMaterial({map: texture});
-    piece.material = [
-      mat, mat, mat, mat, mat, mat
-    ];
+    piece.material = mat;
   });
 }
 
