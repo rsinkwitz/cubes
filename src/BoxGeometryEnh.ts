@@ -6,9 +6,9 @@ import { Vector3 } from 'three/src/math/Vector3.js';
 
 export class BoxGeometryEnh extends BufferGeometry {
 	type: string;
-	parameters: { width: number; height: number; depth: number; widthSegments: number; heightSegments: number; depthSegments: number; diagFocus: number};
+	parameters: { width: number; height: number; depth: number; widthSegments: number; heightSegments: number; depthSegments: number; diagFocus: number; faceTwoMat: boolean};
 
-	constructor( width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1, diagFocus = 0 ) {
+	constructor( width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1, diagFocus = 0, faceTwoMat = false) {
 
 		super();
 
@@ -21,7 +21,8 @@ export class BoxGeometryEnh extends BufferGeometry {
 			widthSegments: widthSegments,
 			heightSegments: heightSegments,
 			depthSegments: depthSegments,
-			diagFocus: diagFocus
+			diagFocus: diagFocus,
+			faceTwoMat: faceTwoMat
 		};
 
 		const scope = this;
@@ -141,6 +142,17 @@ export class BoxGeometryEnh extends BufferGeometry {
 				}
 
 			}
+			
+			var matFactor = faceTwoMat ? 2 : 1; // if faceTwoMat is true, we will have two materials for each face
+			var firstMatUsed = false; // flag to indicate if the first material has been used
+			function firstGroup() {
+				if (faceTwoMat && !firstMatUsed) {
+					firstMatUsed = true;
+					scope.addGroup( groupStart, 3, materialIndex * matFactor + 1 );
+					groupStart += 3;
+					groupCount -= 3;
+				}
+			}
 
 			// indices
 
@@ -161,9 +173,11 @@ export class BoxGeometryEnh extends BufferGeometry {
 
 					if (otherDiagonal) {
 						indices.push( a, b, c );
+						firstGroup();
 						indices.push( a, c, d);
 					} else {
 						indices.push( a, b, d );
+						firstGroup();
 						indices.push( b, c, d );
 					}
 
@@ -177,7 +191,7 @@ export class BoxGeometryEnh extends BufferGeometry {
 
 			// add a group to the geometry. this will ensure multi material support
 
-			scope.addGroup( groupStart, groupCount, materialIndex );
+			scope.addGroup( groupStart, groupCount, materialIndex * matFactor );
 
 			// calculate new start value for groups
 

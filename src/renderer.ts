@@ -52,6 +52,7 @@ const basicMaterials: THREE.MeshBasicMaterial[] = [
   new THREE.MeshBasicMaterial({color: 0x0080ff})  // back   blue
 ];
 const blackMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x202020});
+const grayMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x808080});
 const wireframeMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x000000, wireframe: true});
 
 function init(): void {
@@ -180,6 +181,8 @@ interface MorphModMap {
   [key: number]: MorphMod[];
 }
 
+// morph modifications for the cube indices which form the 2x2x2 cube to morph to a pyramorphix. 
+// The idx values are the corner points of the cube with idx = x+y*2+z*4. The vectors are the new values to apply to the points.
 const oneSixth = 1/6;
 const morphMods: MorphModMap = {};
 morphMods[0] = [{idx: 1, mod: new THREE.Vector3(99, 0, 0)}, {idx: 2, mod: new THREE.Vector3(0, 99, 0)}, {idx: 4, mod: new THREE.Vector3(0, 0, 99)}, {idx: 0, mod: new THREE.Vector3(oneSixth, oneSixth, oneSixth)}];
@@ -188,11 +191,13 @@ morphMods[6] = [{idx: 3, mod: new THREE.Vector3(99, 0, 0)}, {idx: 0, mod: new TH
 morphMods[8] = [{idx: 2, mod: new THREE.Vector3(99, 0, 0)}, {idx: 1, mod: new THREE.Vector3(0, 99, 0)}, {idx: 7, mod: new THREE.Vector3(0, 0, 99)}, {idx: 3, mod: new THREE.Vector3(-oneSixth, -oneSixth, oneSixth)}];
 
 morphMods[18] = [{idx: 5, mod: new THREE.Vector3(99, 0, 0)}, {idx: 6, mod: new THREE.Vector3(0, 99, 0)}, {idx: 0, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[19] = [{idx: 4, mod: new THREE.Vector3(99, -0.5, 99)}, {idx: 5, mod: new THREE.Vector3(99, -0.5, 99)}];
 morphMods[20] = [{idx: 4, mod: new THREE.Vector3(99, 0, 0)}, {idx: 7, mod: new THREE.Vector3(0, 99, 0)}, {idx: 1, mod: new THREE.Vector3(0, 0, 99)}, {idx: 5, mod: new THREE.Vector3(-oneSixth, oneSixth, -oneSixth)}];
 morphMods[24] = [{idx: 7, mod: new THREE.Vector3(99, 0, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}, {idx: 6, mod: new THREE.Vector3(oneSixth, -oneSixth, -oneSixth)}];
 morphMods[26] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 5, mod: new THREE.Vector3(0, 99, 0)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}];
 
 function createGeometry(cubeIndex: number): BoxGeometryEnh {
+  // special setups so that the square face triangulation diagonals meet at the focus corners, needed for the 4 pyramorphix corners
   const specialDiagFocus = new Map();
   specialDiagFocus.set(26, 1);
   specialDiagFocus.set(18, 3);
@@ -200,10 +205,11 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
   specialDiagFocus.set(2, 4);
   const diagFocus = specialDiagFocus.get(cubeIndex) || 0;
 
-  const geometry: BoxGeometryEnh = new BoxGeometryEnh(0.95, 0.95, 0.95, 1, 1, 1, diagFocus);
+  const geometry: BoxGeometryEnh = new BoxGeometryEnh(0.95, 0.95, 0.95, 1, 1, 1, diagFocus, true);
   const orgPositions = geometry.attributes.position;
   let newPositions = orgPositions.clone();
 
+  // apply morph modifications for the cube indices which form the 2x2x2 cube to morph to a pyramorphix
   if (typeof morphMods[cubeIndex] !== 'undefined') {
     morphMods[cubeIndex].forEach((mod) => {
       console.log("modifying idx=" + cubeIndex + "with pos: "+ mod.idx);
@@ -221,71 +227,18 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
     });
     geometry.morphAttributes.position = [];
     geometry.morphAttributes.position[ 0 ] = newPositions;
-    return geometry;
   } 
   return geometry;
 }
 
 function createSingleCube(x: number, y: number, z: number): THREE.Mesh {
   let geometry: BoxGeometryEnh| null = createGeometry((x+1) + (y+1) * 3 + (z+1) * 9);
-  if (geometry === null) {
-    geometry = new BoxGeometryEnh(0.95, 0.95, 0.95);
-    let cube = new THREE.Mesh(geometry, blackMaterial);
-    cube.visible = false;
-    return cube;
-  }
   let cube = new THREE.Mesh(geometry, blackMaterial);
   cube.matrixAutoUpdate = false;
   cube.position.set(x, y, z);
   cube.updateMatrix();
   scene.add(cube);
   return cube;
-}
-
-function usage(): void {
-  // Usage
-const geometry = new BoxGeometryEnh(1, 1, 1);
-}
-
-function createNewCube(x: number, y: number, z: number): THREE.Object3D {
-  const width = 0.5;
-  const vertices = [
-    -width, -width,  -width, // v0
-     width, -width,  -width, // v1
-    -width,  width,  -width, // v2
-     width,  width,  -width, // v3
-    -width, -width,  width, // v4
-     width, -width,  width, // v5
-    -width,  width,  width, // v6
-     width,  width,  width, // v7
-  ];
-  
-  const indicesList = [
-    [7, 5, 1, 	7, 1, 3], // right face
-    [6, 2, 4, 	2, 0, 4], // left face
-    [6, 7, 2, 	7, 3, 2], // top face
-    [0, 1, 4, 	5, 4, 1], // bottom face
-    [4, 5, 7, 	7, 6, 4], // front face
-    [2, 3, 1, 	1, 0, 2], // back face
-  ];
-  
-  const group = new THREE.Group();
-  indicesList.forEach((faceIndices, i) => {
-    const geometry = new THREE.BufferGeometry();
-  
-    geometry.setIndex( faceIndices );
-    geometry.setAttribute( 'position', new THREE.BufferAttribute( new Float32Array(vertices), 3 ) );
-  
-    const mesh = new THREE.Mesh( geometry, basicMaterials[i] );
-  
-    geometry.computeVertexNormals();
-    group.add(mesh);
-    
-    const edges = new THREE.EdgesGeometry( geometry, 0 ); 
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0 } ) ); 
-    group.add( line );
-  });
-  return group;  
 }
 
 // the cube model (pieces) is simply the list of cube objects sorted by z,y,x ascending
@@ -342,9 +295,11 @@ function setAllCubeColors(): void {
 
 function setCubeFaceColor(materials: THREE.MeshBasicMaterial[], index: number, i1: number, i2: number): void {
   if (index === -1) {
-    materials[i1] = basicMaterials[i1];
+    materials[i1*2] = basicMaterials[i1];
+    materials[i1*2+1] = grayMaterial;// basicMaterials[i1];
   } else if (index === 1) {
-    materials[i2] = basicMaterials[i2];
+    materials[i2*2] = basicMaterials[i2];
+    materials[i2*2+1] = grayMaterial; // basicMaterials[i2];
   }
 }
 
@@ -639,7 +594,8 @@ function rotateModelSlice(nums: number[], rightRotate: boolean): void {
 }
 
 function shuffle(): void {
-  let moves = ["l", "m", "r", "u", "e", "d", "b", "s", "f"];
+  let moves = is2x2 ? ["l", "r", "u", "d", "b", "f"]
+    : ["l", "m", "r", "u", "e", "d", "b", "s", "f"];
   for (let i = 0; i < 20; i++) {
     let index = Math.floor(Math.random() * moves.length * 2);
     if (index >= moves.length) {
