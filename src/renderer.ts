@@ -30,7 +30,8 @@ let showRotationInfos: boolean = false;
 let isWireframe: boolean = false;
 let isHideNext: boolean = false;
 let is2x2: boolean = false;
-let isPyra: boolean = false;
+let isPyraShape: boolean = false;
+let isPyraColors: boolean = false;
 let testIndex: number = 0;
 let isShowOneCube: boolean = false;
 
@@ -44,12 +45,12 @@ let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
 
 const basicMaterials: THREE.MeshBasicMaterial[] = [
-  new THREE.MeshBasicMaterial({color: 0xff0000}), // right  red
-  new THREE.MeshBasicMaterial({color: 0xFFC700}), // left   orange
-  new THREE.MeshBasicMaterial({color: 0xffffff}), // top    white
-  new THREE.MeshBasicMaterial({color: 0xffff00}), // bottom yellow
-  new THREE.MeshBasicMaterial({color: 0x00ff00}), // front  green
-  new THREE.MeshBasicMaterial({color: 0x0080ff})  // back   blue
+  new THREE.MeshBasicMaterial({color: 0xff0000}), // right  red     0
+  new THREE.MeshBasicMaterial({color: 0xFFC700}), // left   orange  1
+  new THREE.MeshBasicMaterial({color: 0xffffff}), // top    white   2
+  new THREE.MeshBasicMaterial({color: 0xffff00}), // bottom yellow  3
+  new THREE.MeshBasicMaterial({color: 0x00ff00}), // front  green   4
+  new THREE.MeshBasicMaterial({color: 0x0080ff})  // back   blue    5
 ];
 const blackMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x202020});
 const grayMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x808080});
@@ -215,6 +216,11 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
   specialDiagFocus.set(18, 3);
   specialDiagFocus.set(6, 2);
   specialDiagFocus.set(2, 4);
+  specialDiagFocus.set(12, 2);
+  specialDiagFocus.set(22, 1);
+  specialDiagFocus.set(16, 1);
+  specialDiagFocus.set(14, 4);
+  specialDiagFocus.set(10, 3);
   const diagFocus = specialDiagFocus.get(cubeIndex) || 0;
 
   const geometry: BoxGeometryEnh = new BoxGeometryEnh(0.95, 0.95, 0.95, 1, 1, 1, diagFocus, true);
@@ -274,7 +280,9 @@ function setAllCubeFaces(): void {
     setAllCubeNumbers();
   } else if (isWireframe) {
     setAllCubeWireframes();
-  } else {
+  } else if (isPyraColors) {
+    setAllPyraColors();
+  } else
     setAllCubeColors();
   }
 }
@@ -308,11 +316,105 @@ function setAllCubeColors(): void {
 function setCubeFaceColor(materials: THREE.MeshBasicMaterial[], index: number, i1: number, i2: number): void {
   if (index === -1) {
     materials[i1*2] = basicMaterials[i1];
-    materials[i1*2+1] = grayMaterial; // basicMaterials[i1];
+    materials[i1*2+1] = basicMaterials[i1];
   } else if (index === 1) {
     materials[i2*2] = basicMaterials[i2];
-    materials[i2*2+1] = grayMaterial; // basicMaterials[i2];
+    materials[i2*2+1] = basicMaterials[i2];
   }
+}
+
+
+interface PieceFaces {
+  piece: number;
+  faces: number[];
+}
+
+interface PyraFace {
+  material: THREE.MeshBasicMaterial;
+  nums: PieceFaces[]
+}
+/*
+red     0
+orange  2
+white   4
+yellow  6
+green   8
+blue    10
+*/
+let pyraFaces: PyraFace[] = [
+  {material: basicMaterials[0], nums: [ // red
+    {piece: 6, faces: [2, 5]},
+    {piece: 18, faces: [2, 9]},
+    {piece: 24, faces: [2, 3, 8, 9, 4, 5]},
+    {piece: 26, faces: [5, 9]},
+    {piece: 25, faces: [8, 9, 4, 5]},
+    {piece: 15, faces: [2, 3, 4, 5]},
+    {piece: 21, faces: [2, 3, 8, 9]},
+    {piece: 12, faces: [2]},
+    {piece: 22, faces: [9]},
+    {piece: 16, faces: [5]},
+  ]},
+  {material: basicMaterials[5], nums: [ // blue
+    {piece: 18, faces: [8, 6]},
+    {piece: 2, faces: [6, 1]},
+    {piece: 20, faces: [8, 9, 0, 1, 6, 7]},
+    {piece: 26, faces: [8, 1]},
+    {piece: 23, faces: [8, 9, 0, 1]},
+    {piece: 19, faces: [8, 9, 6, 7]},
+    {piece: 11, faces: [0, 1, 6, 7]},
+    {piece: 22, faces: [8]},
+    {piece: 14, faces: [1]},
+    {piece: 10, faces: [6]},
+  ]},
+  {material: basicMaterials[3], nums: [ // yellow
+    {piece: 26, faces: [0, 4]},
+    {piece: 6, faces: [4, 11]},
+    {piece: 8, faces: [0, 1, 4, 5, 10, 11]},
+    {piece: 2, faces: [0, 11]},
+    {piece: 17, faces: [4, 5, 0, 1]},
+    {piece: 7, faces: [4, 5, 10, 11]},
+    {piece: 5, faces: [0, 1, 10, 11]},
+    {piece: 16, faces: [4]},
+    {piece: 14, faces: [0]},
+    {piece: 4, faces: [11]},
+  ]},
+  {material: basicMaterials[4], nums: [ // green
+    {piece: 2, faces: [10, 7]},
+    {piece: 18, faces: [3, 7]},
+    {piece: 0, faces: [10, 11, 2, 3, 6, 7]},
+    {piece: 6, faces: [10, 3]},
+    {piece: 3, faces: [10, 11, 2, 3]},
+    {piece: 1, faces: [10, 11, 6, 7]},
+    {piece: 9, faces: [2, 3, 6, 7]},
+    {piece: 4, faces: [10]},
+    {piece: 12, faces: [3]},
+    {piece: 10, faces: [7]},
+  ]},
+];
+
+function setAllPyraColors(): void {
+  let initialMaterials: THREE.MeshBasicMaterial[] = [];
+  for (let i = 0; i < 12; i++) {
+    initialMaterials.push(blackMaterial);
+  }
+  fixedPieces.forEach((piece) => {
+    piece.material = initialMaterials;      
+  });
+  pyraFaces.forEach((pyraFace) => {
+    pyraFace.nums.forEach((pieceFaces) => {
+      let cube = fixedPieces[pieceFaces.piece];
+      if (cube.material instanceof Array) {
+        let materials = cube.material.slice();
+        for (let i = 0; i < 12; i++) {
+          materials.push(blackMaterial);
+        }
+        pieceFaces.faces.forEach((face) => {
+          materials[face] = pyraFace.material;
+        });
+        cube.material = materials;      
+      }
+    });
+  });  
 }
 
 function setAllCubeNumbers(): void {
@@ -703,18 +805,26 @@ function onKeyDown(event: KeyboardEvent): void {
       scaleTo2x2(true);
       break;
     case "F4":
-      if (!isPyra) {
+      if (!isPyraShape) {
         morphToPyra(0, 1);
-        isPyra= true;
+        isPyraShape= true;
       }
       break;
     case "F5":
-      if (isPyra) {
+      if (isPyraShape) {
         morphToPyra(1, 0);
-        isPyra = false;
+        isPyraShape = false;
       }
       break;
-    case "w":
+    case "F6":
+      isPyraColors = true;
+      setAllCubeFaces();
+      break;
+      case "F7":
+        isPyraColors = false;
+        setAllCubeFaces();
+        break;
+      case "w":
     case "W":
         toggleWireframe();
       break;
