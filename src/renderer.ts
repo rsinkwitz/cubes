@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
 import {Font, FontLoader} from 'three/examples/jsm/loaders/FontLoader';
-
+import { VertexNormalsHelper } from 'three/examples/jsm/helpers/VertexNormalsHelper';
 import gsap from "gsap";
 
 
@@ -44,17 +44,17 @@ let infoGroups: THREE.Group[] = [];
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
 
-const basicMaterials: THREE.MeshBasicMaterial[] = [
-  new THREE.MeshBasicMaterial({color: 0xff0000}), // right  red     0
-  new THREE.MeshBasicMaterial({color: 0xFFC700}), // left   orange  1
-  new THREE.MeshBasicMaterial({color: 0xffffff}), // top    white   2
-  new THREE.MeshBasicMaterial({color: 0xffff00}), // bottom yellow  3
-  new THREE.MeshBasicMaterial({color: 0x00ff00}), // front  green   4
-  new THREE.MeshBasicMaterial({color: 0x0080ff})  // back   blue    5
+const basicMaterials: THREE.MeshStandardMaterial[] = [
+  new THREE.MeshStandardMaterial({color: 0xff0000}), // right  red     0
+  new THREE.MeshStandardMaterial({color: 0xFFC700}), // left   orange  1
+  new THREE.MeshStandardMaterial({color: 0xffffff}), // top    white   2
+  new THREE.MeshStandardMaterial({color: 0xffff00}), // bottom yellow  3
+  new THREE.MeshStandardMaterial({color: 0x00ff00}), // front  green   4
+  new THREE.MeshStandardMaterial({color: 0x0080ff})  // back   blue    5
 ];
-const blackMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x202020});
-const grayMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x808080});
-const wireframeMaterial: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({color: 0x000000, wireframe: true});
+const blackMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x202020});
+const grayMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x808080});
+const wireframeMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x000000, wireframe: true});
 
 function init(): void {
   scene = new THREE.Scene();
@@ -76,11 +76,23 @@ function init(): void {
 
   createMain();
 
+  createDirLight(-5, 0, 2);
+  createDirLight(5, 0, 2);
+  createDirLight(0, -5, 2);
+  createDirLight(0, 5, 2);
+
   camera.position.set(2, 2, 5);
   controls.update();
   controls.saveState();
 
   animate();
+}
+
+function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight {
+  const light = new THREE.DirectionalLight(0xFFFFFF, 2);
+  light.position.set(x, y, z);
+  scene.add(light);
+  return light;
 }
 
 function createMain() {
@@ -117,7 +129,7 @@ function createBeveledCube(): void {
   };
 
   const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  const material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+  const material = new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true });
   let cube = new THREE.Mesh(geometry, material);
   cube.position.set(3, 0, 0);
   scene.add(cube);
@@ -128,9 +140,11 @@ function resetMain() {
     scene.remove(piece);
     disposeMesh(piece);
   });
-  infoGroups = [];
   opsHistory = [];
   opsTodo = [];
+  is2x2 = false;
+  isPyraShape = false;
+  isPyraColors = false;
   createMain();
 }
 
@@ -175,7 +189,9 @@ const meshCornerLinePositions = [
 
 interface MorphMod {
   idx: number; // index of point in position array
-  mod: THREE.Vector3; // new value to apply to the point (99 = no change)
+  x: number; // new value to apply to the point (99 = no change)
+  y: number;
+  z: number;
 }
 
 interface MorphModMap {
@@ -186,28 +202,28 @@ interface MorphModMap {
 // The idx values are the corner points of the cube with idx = x+y*2+z*4. The vectors are the new values to apply to the points.
 const oneSixth = 1/6;
 const morphMods: MorphModMap = {};
-morphMods[0] = [{idx: 1, mod: new THREE.Vector3(99, 0, 0)}, {idx: 2, mod: new THREE.Vector3(0, 99, 0)}, {idx: 4, mod: new THREE.Vector3(0, 0, 99)}, {idx: 0, mod: new THREE.Vector3(oneSixth, oneSixth, oneSixth)}];
-morphMods[1] = [{idx: 0, mod: new THREE.Vector3(99, 0, 0)}, {idx: 1, mod: new THREE.Vector3(99, 0, 0)}];
-morphMods[2] = [{idx: 0, mod: new THREE.Vector3(99, 0, 0)}, {idx: 3, mod: new THREE.Vector3(0, 99, 0)}, {idx: 5, mod: new THREE.Vector3(0, 0, 99)}];
-morphMods[3] = [{idx: 2, mod: new THREE.Vector3(0, 99, 0)}, {idx: 0, mod: new THREE.Vector3(0, 99, 0)}];
-morphMods[5] = [{idx: 3, mod: new THREE.Vector3(0, 99, 0)}, {idx: 1, mod: new THREE.Vector3(0, 99, 0)}];
-morphMods[6] = [{idx: 3, mod: new THREE.Vector3(99, 0, 0)}, {idx: 0, mod: new THREE.Vector3(0, 99, 0)}, {idx: 6, mod: new THREE.Vector3(0, 0, 99)}];
-morphMods[7] = [{idx: 2, mod: new THREE.Vector3(99, 0, 0)}, {idx: 3, mod: new THREE.Vector3(99, 0, 0)}];
-morphMods[8] = [{idx: 2, mod: new THREE.Vector3(99, 0, 0)}, {idx: 1, mod: new THREE.Vector3(0, 99, 0)}, {idx: 7, mod: new THREE.Vector3(0, 0, 99)}, {idx: 3, mod: new THREE.Vector3(-oneSixth, -oneSixth, oneSixth)}];
+morphMods[0] = [{idx: 1, x: 99, y: 0, z: 0}, {idx: 2, x: 0, y: 99, z: 0}, {idx: 4, x: 0, y: 0, z: 99}, {idx: 0, x: oneSixth, y: oneSixth, z: oneSixth}];
+morphMods[1] = [{idx: 0, x: 99, y: 0, z: 0}, {idx: 1, x: 99, y: 0, z: 0}];
+morphMods[2] = [{idx: 0, x: 99, y: 0, z: 0}, {idx: 3, x: 0, y: 99, z: 0}, {idx: 5, x: 0, y: 0, z: 99}];
+morphMods[3] = [{idx: 2, x: 0, y: 99, z: 0}, {idx: 0, x: 0, y: 99, z: 0}];
+morphMods[5] = [{idx: 3, x: 0, y: 99, z: 0}, {idx: 1, x: 0, y: 99, z: 0}];
+morphMods[6] = [{idx: 3, x: 99, y: 0, z: 0}, {idx: 0, x: 0, y: 99, z: 0}, {idx: 6, x: 0, y: 0, z: 99}];
+morphMods[7] = [{idx: 2, x: 99, y: 0, z: 0}, {idx: 3, x: 99, y: 0, z: 0}];
+morphMods[8] = [{idx: 2, x: 99, y: 0, z: 0}, {idx: 1, x: 0, y: 99, z: 0}, {idx: 7, x: 0, y: 0, z: 99}, {idx: 3, x: -oneSixth, y: -oneSixth, z: oneSixth}];
 
-morphMods[9] = [{idx: 4, mod: new THREE.Vector3(0, 0, 99)}, {idx: 0, mod: new THREE.Vector3(0, 0, 99)}];
-morphMods[11] = [{idx: 5, mod: new THREE.Vector3(0, 0, 99)}, {idx: 1, mod: new THREE.Vector3(0, 0, 99)}];
-morphMods[15] = [{idx: 6, mod: new THREE.Vector3(0, 0, 99)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}];
-morphMods[17] = [{idx: 7, mod: new THREE.Vector3(0, 0, 99)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[9] = [{idx: 4, x: 0, y: 0, z: 99}, {idx: 0, x: 0, y: 0, z: 99}];
+morphMods[11] = [{idx: 5, x: 0, y: 0, z: 99}, {idx: 1, x: 0, y: 0, z: 99}];
+morphMods[15] = [{idx: 6, x: 0, y: 0, z: 99}, {idx: 2, x: 0, y: 0, z: 99}];
+morphMods[17] = [{idx: 7, x: 0, y: 0, z: 99}, {idx: 3, x: 0, y: 0, z: 99}];
 
-morphMods[18] = [{idx: 5, mod: new THREE.Vector3(99, 0, 0)}, {idx: 6, mod: new THREE.Vector3(0, 99, 0)}, {idx: 0, mod: new THREE.Vector3(0, 0, 99)}];
-morphMods[19] = [{idx: 4, mod: new THREE.Vector3(99, 0, 0)}, {idx: 5, mod: new THREE.Vector3(99, 0, 0)}];
-morphMods[20] = [{idx: 4, mod: new THREE.Vector3(99, 0, 0)}, {idx: 7, mod: new THREE.Vector3(0, 99, 0)}, {idx: 1, mod: new THREE.Vector3(0, 0, 99)}, {idx: 5, mod: new THREE.Vector3(-oneSixth, oneSixth, -oneSixth)}];
-morphMods[21] = [{idx: 6, mod: new THREE.Vector3(0, 99, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}];
-morphMods[23] = [{idx: 5, mod: new THREE.Vector3(0, 99, 0)}, {idx: 7, mod: new THREE.Vector3(0, 99, 0)}];
-morphMods[24] = [{idx: 7, mod: new THREE.Vector3(99, 0, 0)}, {idx: 4, mod: new THREE.Vector3(0, 99, 0)}, {idx: 2, mod: new THREE.Vector3(0, 0, 99)}, {idx: 6, mod: new THREE.Vector3(oneSixth, -oneSixth, -oneSixth)}];
-morphMods[25] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 7, mod: new THREE.Vector3(99, 0, 0)}];
-morphMods[26] = [{idx: 6, mod: new THREE.Vector3(99, 0, 0)}, {idx: 5, mod: new THREE.Vector3(0, 99, 0)}, {idx: 3, mod: new THREE.Vector3(0, 0, 99)}];
+morphMods[18] = [{idx: 5, x: 99, y: 0, z: 0}, {idx: 6, x: 0, y: 99, z: 0}, {idx: 0, x: 0, y: 0, z: 99}];
+morphMods[19] = [{idx: 4, x: 99, y: 0, z: 0}, {idx: 5, x: 99, y: 0, z: 0}];
+morphMods[20] = [{idx: 4, x: 99, y: 0, z: 0}, {idx: 7, x: 0, y: 99, z: 0}, {idx: 1, x: 0, y: 0, z: 99}, {idx: 5, x: -oneSixth, y: oneSixth, z: -oneSixth}];
+morphMods[21] = [{idx: 6, x: 0, y: 99, z: 0}, {idx: 4, x: 0, y: 99, z: 0}];
+morphMods[23] = [{idx: 5, x: 0, y: 99, z: 0}, {idx: 7, x: 0, y: 99, z: 0}];
+morphMods[24] = [{idx: 7, x: 99, y: 0, z: 0}, {idx: 4, x: 0, y: 99, z: 0}, {idx: 2, x: 0, y: 0, z: 99}, {idx: 6, x: oneSixth, y: -oneSixth, z: -oneSixth}];
+morphMods[25] = [{idx: 6, x: 99, y: 0, z: 0}, {idx: 7, x: 99, y: 0, z: 0}];
+morphMods[26] = [{idx: 6, x: 99, y: 0, z: 0}, {idx: 5, x: 0, y: 99, z: 0}, {idx: 3, x: 0, y: 0, z: 99}];
 
 function createGeometry(cubeIndex: number): BoxGeometryEnh {
   // special setups so that the square face triangulation diagonals meet at the focus corners, needed for the 4 pyramorphix corners
@@ -232,20 +248,23 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
     morphMods[cubeIndex].forEach((mod) => {
       console.log("modifying idx=" + cubeIndex + "with pos: "+ mod.idx);
       meshCornerLinePositions[mod.idx].forEach((clPosition) => {
-        if (mod.mod.x !== 99) {
-          newPositions.setX(clPosition, mod.mod.x);
+        if (mod.x !== 99) {
+          newPositions.setX(clPosition, mod.x);
         }
-        if (mod.mod.y !== 99) {
-          newPositions.setY(clPosition, mod.mod.y);
+        if (mod.y !== 99) {
+          newPositions.setY(clPosition, mod.y);
         }
-        if (mod.mod.z !== 99) {
-          newPositions.setZ(clPosition, mod.mod.z);
+        if (mod.z !== 99) {
+          newPositions.setZ(clPosition, mod.z);
         }  
       });
     });
     geometry.morphAttributes.position = [];
     geometry.morphAttributes.position[ 0 ] = newPositions;
   } 
+  // add geometry to show normals using VertexNormalsHelper
+  // const helper = new VertexNormalsHelper(geometry, 0.2, 0x00ff00);
+  // scene.add(helper);
   return geometry;
 }
 
@@ -282,7 +301,7 @@ function setAllCubeFaces(): void {
     setAllCubeWireframes();
   } else if (isPyraColors) {
     setAllPyraColors();
-  } else
+  } else {
     setAllCubeColors();
   }
 }
@@ -300,7 +319,7 @@ function setAllCubeColors(): void {
         let index = (x+1) + (y+1)*3 + (z+1)*9;
         let cube = fixedPieces[index];
 
-        let materials: THREE.MeshBasicMaterial[] = [];
+        let materials: THREE.MeshStandardMaterial[] = [];
         for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
@@ -313,7 +332,7 @@ function setAllCubeColors(): void {
   }
 }
 
-function setCubeFaceColor(materials: THREE.MeshBasicMaterial[], index: number, i1: number, i2: number): void {
+function setCubeFaceColor(materials: THREE.MeshStandardMaterial[], index: number, i1: number, i2: number): void {
   if (index === -1) {
     materials[i1*2] = basicMaterials[i1];
     materials[i1*2+1] = basicMaterials[i1];
@@ -330,7 +349,7 @@ interface PieceFaces {
 }
 
 interface PyraFace {
-  material: THREE.MeshBasicMaterial;
+  material: THREE.MeshStandardMaterial;
   nums: PieceFaces[]
 }
 /*
@@ -393,7 +412,7 @@ let pyraFaces: PyraFace[] = [
 ];
 
 function setAllPyraColors(): void {
-  let initialMaterials: THREE.MeshBasicMaterial[] = [];
+  let initialMaterials: THREE.MeshStandardMaterial[] = [];
   for (let i = 0; i < 12; i++) {
     initialMaterials.push(blackMaterial);
   }
@@ -433,7 +452,7 @@ function setAllCubeNumbers(): void {
 
     const texture = new THREE.Texture(canvas);
     texture.needsUpdate = true;
-    const mat = new THREE.MeshBasicMaterial({map: texture});
+    const mat = new THREE.MeshStandardMaterial({map: texture});
     piece.material = mat;
   });
 }
@@ -454,7 +473,7 @@ function createOneRotationLetter(font: Font, key: string, inverse: boolean, x: n
     //     curveSegments: 12, bevelEnabled: true, bevelThickness: 10, bevelSize: 8, bevelOffset: 0, bevelSegments: 5
     });
     geometry.center();
-    let material = new THREE.MeshBasicMaterial({color: 0x1f1fff, transparent: true, opacity: 0.8 });
+    let material = new THREE.MeshStandardMaterial({color: 0x1f1fff, transparent: true, opacity: 0.8 });
     const mesh = new THREE.Mesh(geometry, material);
     return mesh;
 }
@@ -475,7 +494,7 @@ function createRotationArrow(inverse: boolean): THREE.Mesh {
     steps: 1, depth: thickness, bevelEnabled: false, bevelThickness: 0.2, bevelSize: 0.2, bevelOffset: 0, bevelSegments: 1
   };
   let geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  let material = new THREE.MeshBasicMaterial({color: 0x1f1fff, transparent: true, opacity: 0.8, wireframe: false});
+  let material = new THREE.MeshStandardMaterial({color: 0x1f1fff, transparent: true, opacity: 0.8, wireframe: false});
   let mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.z = 45 * Math.PI / 180;
   if (inverse) {
@@ -501,11 +520,12 @@ function disposeMesh(mesh: THREE.Object3D): void {
 
 function createRotationInfos(visible: boolean, inverse: boolean): void {
   infoGroups.forEach((group) => {
+    scene.remove(group);
     group.children.forEach((child) => {
       disposeMesh(child);
     });
-    scene.remove(group);
   });
+  infoGroups = [];
   if (visible) {
     const loader = new FontLoader();
     loader.load(require('three/examples/fonts/helvetiker_regular.typeface.json').default, function (font) {
