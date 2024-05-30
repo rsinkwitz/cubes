@@ -21,7 +21,7 @@ let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
 let controls: OrbitControls;
 let renderer: THREE.WebGLRenderer;
-let cube: THREE.Mesh;
+let baseGroup: THREE.Group;
 
 let animationPaused: boolean = true;
 let showNumbers: boolean = false;
@@ -74,6 +74,9 @@ function init(): void {
   axesHelper.visible = showAxes;
   scene.add(axesHelper);
 
+  baseGroup = new THREE.Group();
+  scene.add(baseGroup);
+
   createMain();
 
   createDirLight(-5, 0, 2);
@@ -97,9 +100,7 @@ function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight
 
 function createMain() {
   createAllCubes();
-  cube = rotPieces[26];
   //createBeveledCube();
-
 }
 
 function createBeveledCube(): void {
@@ -137,7 +138,7 @@ function createBeveledCube(): void {
 
 function resetMain() {
   rotPieces.forEach((piece) => {
-    scene.remove(piece);
+    baseGroup.remove(piece);
     disposeMesh(piece);
   });
   opsHistory = [];
@@ -150,7 +151,7 @@ function resetMain() {
 
 function toggleAxes(): void {
   showAxes = !showAxes;
-  scene.children.forEach((child) => {
+  baseGroup.children.forEach((child) => {
     if (child instanceof THREE.AxesHelper) {
       child.visible = showAxes;
     }
@@ -262,9 +263,10 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
     geometry.morphAttributes.position = [];
     geometry.morphAttributes.position[ 0 ] = newPositions;
   } 
+  
   // add geometry to show normals using VertexNormalsHelper
   // const helper = new VertexNormalsHelper(geometry, 0.2, 0x00ff00);
-  // scene.add(helper);
+  // baseGroup.add(helper);
   return geometry;
 }
 
@@ -274,7 +276,7 @@ function createSingleCube(x: number, y: number, z: number): THREE.Mesh {
   cube.matrixAutoUpdate = false;
   cube.position.set(x, y, z);
   cube.updateMatrix();
-  scene.add(cube);
+  baseGroup.add(cube);
   return cube;
 }
 
@@ -292,6 +294,7 @@ function createAllCubes(): void {
     }
   }
   setAllCubeFaces();
+  setPyraNormals();
 }
 
 function setAllCubeFaces(): void {
@@ -342,6 +345,15 @@ function setCubeFaceColor(materials: THREE.MeshStandardMaterial[], index: number
   }
 }
 
+function calculateNormal(A: THREE.Vector3, B: THREE.Vector3, C: THREE.Vector3): THREE.Vector3 {
+  const vector1 = new THREE.Vector3().subVectors(B, A);
+  const vector2 = new THREE.Vector3().subVectors(C, A);
+  
+  const normal = new THREE.Vector3().crossVectors(vector1, vector2);
+  normal.normalize(); // Normalize the vector to get a unit normal vector
+
+  return normal;
+}
 
 interface PieceFaces {
   piece: number;
@@ -350,7 +362,8 @@ interface PieceFaces {
 
 interface PyraFace {
   material: THREE.MeshStandardMaterial;
-  nums: PieceFaces[]
+  normal: THREE.Vector3;
+  pieces: PieceFaces[]
 }
 /*
 red     0
@@ -361,7 +374,9 @@ green   8
 blue    10
 */
 let pyraFaces: PyraFace[] = [
-  {material: basicMaterials[0], nums: [ // red
+  {material: basicMaterials[0], 
+  normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, 1, 1)),
+  pieces: [ // red
     {piece: 6, faces: [2, 5]},
     {piece: 18, faces: [2, 9]},
     {piece: 24, faces: [2, 3, 8, 9, 4, 5]},
@@ -373,7 +388,9 @@ let pyraFaces: PyraFace[] = [
     {piece: 22, faces: [9]},
     {piece: 16, faces: [5]},
   ]},
-  {material: basicMaterials[5], nums: [ // blue
+  {material: basicMaterials[5], 
+    normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, 1, -1), new THREE.Vector3(1, 1, 1)),
+    pieces: [ // blue
     {piece: 18, faces: [8, 6]},
     {piece: 2, faces: [6, 1]},
     {piece: 20, faces: [8, 9, 0, 1, 6, 7]},
@@ -385,7 +402,9 @@ let pyraFaces: PyraFace[] = [
     {piece: 14, faces: [1]},
     {piece: 10, faces: [6]},
   ]},
-  {material: basicMaterials[3], nums: [ // yellow
+  {material: basicMaterials[3], 
+    normal: calculateNormal(new THREE.Vector3(1, 1, -1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, 1, 1)),
+    pieces: [ // yellow
     {piece: 26, faces: [0, 4]},
     {piece: 6, faces: [4, 11]},
     {piece: 8, faces: [0, 1, 4, 5, 10, 11]},
@@ -397,7 +416,9 @@ let pyraFaces: PyraFace[] = [
     {piece: 14, faces: [0]},
     {piece: 4, faces: [11]},
   ]},
-  {material: basicMaterials[4], nums: [ // green
+  {material: basicMaterials[4], 
+    normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, -1, -1)),
+    pieces: [ // green
     {piece: 2, faces: [10, 7]},
     {piece: 18, faces: [3, 7]},
     {piece: 0, faces: [10, 11, 2, 3, 6, 7]},
@@ -419,21 +440,62 @@ function setAllPyraColors(): void {
   fixedPieces.forEach((piece) => {
     piece.material = initialMaterials;      
   });
-  pyraFaces.forEach((pyraFace) => {
-    pyraFace.nums.forEach((pieceFaces) => {
-      let cube = fixedPieces[pieceFaces.piece];
+  pyraFaces.forEach((pyraFaceObj) => {
+    pyraFaceObj.pieces.forEach((pieceObj) => {
+      let cube = fixedPieces[pieceObj.piece];
       if (cube.material instanceof Array) {
         let materials = cube.material.slice();
         for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
-        pieceFaces.faces.forEach((face) => {
-          materials[face] = pyraFace.material;
+        pieceObj.faces.forEach((face) => {
+          materials[face] = pyraFaceObj.material;
         });
         cube.material = materials;      
       }
     });
   });  
+}
+
+function setPyraNormals(): void {
+  const morphNormals: THREE.BufferAttribute[] = [];
+  const groupStarts: number[][] = [];
+  const groupCounts: number[][] = [];
+
+  fixedPieces.forEach((piece, pieceNo) => {
+    const normals = piece.geometry.attributes.normal;
+    // morphNormals.push(normals.clone());
+
+    // const morphNormals = new Float32Array(piece.geometry.attributes.normal.array.length);
+    // morphNormals.set(piece.geometry.attributes.normal.array);
+    // piece.geometry.morphAttributes.normal = [new THREE.Float32BufferAttribute(morphNormals, 3)];
+  
+
+    groupStarts.push([]);
+    groupCounts.push([]);
+    (piece.geometry as BoxGeometryEnh).groups.forEach((group) => {
+      groupStarts[pieceNo].push(group.start);
+      groupCounts[pieceNo].push(group.count);
+    });  
+  });
+
+  // pyraFaces.forEach((pyraFaceObj) => {
+  //   pyraFaceObj.pieces.forEach((pieceObj) => {
+  //     const p = pieceObj.piece;
+  //     const normals = morphNormals[p];
+      
+  //     pieceObj.faces.forEach((f) => {
+  //       for (let i = groupStarts[p][f]; i < groupStarts[p][f] + groupCounts[p][f]; i++) {
+  //         normals.setXYZ(i, pyraFaceObj.normal.x, pyraFaceObj.normal.y, pyraFaceObj.normal.z);
+  //       }
+  //     });
+  //   });
+  // });  
+
+  // fixedPieces.forEach((piece, index) => {
+  //   piece.geometry.morphAttributes.normal = [];
+  //   piece.geometry.morphAttributes.normal[ 0 ] = morphNormals[index];
+  // });
 }
 
 function setAllCubeNumbers(): void {
@@ -463,7 +525,7 @@ function createRotationInfoGroup(font: Font, key: string, inverse: boolean, x: n
   group.add(createRotationArrow(inverse));
   group.position.set(x * 1.6, y * 1.6, z * 1.6);
   group.rotateOnAxis(rotAxis, rotDegrees * Math.PI / 180);
-  scene.add(group);
+  baseGroup.add(group);
   infoGroups.push(group);
 }
 
@@ -520,7 +582,7 @@ function disposeMesh(mesh: THREE.Object3D): void {
 
 function createRotationInfos(visible: boolean, inverse: boolean): void {
   infoGroups.forEach((group) => {
-    scene.remove(group);
+    baseGroup.remove(group);
     group.children.forEach((child) => {
       disposeMesh(child);
     });
@@ -542,10 +604,10 @@ function createRotationInfos(visible: boolean, inverse: boolean): void {
 function animate(): void {
   requestAnimationFrame(animate);
   if (!animationPaused) {
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
-    cube.rotation.z += 0.01;
-    cube.updateMatrix();
+    baseGroup.rotation.x += 0.01;
+    baseGroup.rotation.y += 0.01;
+    baseGroup.rotation.z += 0.01;
+    baseGroup.updateMatrix();
   }
   renderer.render(scene, camera);
 }
@@ -921,29 +983,29 @@ function onKeyDown(event: KeyboardEvent): void {
       testIndex--;
       break;
     case "ArrowLeft":
-      cube.rotation.y += 0.1;
-      cube.updateMatrix();
+      baseGroup.rotation.y += 0.1;
+      baseGroup.updateMatrix();
       break;
     case "ArrowRight":
-      cube.rotation.y -= 0.1;
-      cube.updateMatrix();
+      baseGroup.rotation.y -= 0.1;
+      baseGroup.updateMatrix();
       break;
     case "k":
-      cube.rotation.z += 0.1;
-      cube.updateMatrix();
+      baseGroup.rotation.z += 0.1;
+      baseGroup.updateMatrix();
       break;
     case "K":
-      cube.rotation.z -= 0.1;
-      cube.updateMatrix();
+      baseGroup.rotation.z -= 0.1;
+      baseGroup.updateMatrix();
       break;
     case "v":
       controls.reset();
       break;
     case "0":
-      cube.rotation.x = 0;
-      cube.rotation.y = 0;
-      cube.rotation.z = 0;
-      cube.updateMatrix();
+      baseGroup.rotation.x = 0;
+      baseGroup.rotation.y = 0;
+      baseGroup.rotation.z = 0;
+      baseGroup.updateMatrix();
       break;
     case "9":
       undoOperation();
