@@ -37,12 +37,13 @@ let isShowOneCube: boolean = false;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
-let fixedPieces: THREE.Mesh[] = []; // the list of pieces, not changed by rotations
-let rotPieces: THREE.Mesh[] = [];   // the list of pieces, changed by rotations
+let fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
+let rotPieces: THREE.Group[] = [];   // the list of pieces, changed by rotations
 let infoGroups: THREE.Group[] = [];
 
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
+let vnHelpers: THREE.Group[] = [];
 
 const basicMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({color: 0xff0000}), // right  red     0
@@ -64,7 +65,7 @@ function init(): void {
     0.1,
     1000
   );
-  renderer = new THREE.WebGLRenderer();
+  renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0xb0c4de); // Light blue-gray color in hexadecimal
   controls = new OrbitControls(camera, renderer.domElement);
@@ -100,6 +101,7 @@ function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight
 
 function createMain() {
   createAllCubes();
+  createPyraFaceLines();
   //createBeveledCube();
 }
 
@@ -139,7 +141,9 @@ function createBeveledCube(): void {
 function resetMain() {
   rotPieces.forEach((piece) => {
     baseGroup.remove(piece);
-    disposeMesh(piece);
+    piece.children.forEach((child) => {
+      disposeMesh(child);
+    });
   });
   opsHistory = [];
   opsTodo = [];
@@ -226,6 +230,110 @@ morphMods[24] = [{idx: 7, x: 99, y: 0, z: 0}, {idx: 4, x: 0, y: 99, z: 0}, {idx:
 morphMods[25] = [{idx: 6, x: 99, y: 0, z: 0}, {idx: 7, x: 99, y: 0, z: 0}];
 morphMods[26] = [{idx: 6, x: 99, y: 0, z: 0}, {idx: 5, x: 0, y: 99, z: 0}, {idx: 3, x: 0, y: 0, z: 99}];
 
+function calculateNormal(A: THREE.Vector3, B: THREE.Vector3, C: THREE.Vector3): THREE.Vector3 {
+  const vector1 = new THREE.Vector3().subVectors(B, A);
+  const vector2 = new THREE.Vector3().subVectors(C, A);
+  
+  const normal = new THREE.Vector3().crossVectors(vector1, vector2);
+  normal.normalize(); // Normalize the vector to get a unit normal vector
+
+  return normal;
+}
+
+interface PieceFaces {
+  piece: number;
+  faces: number[];
+}
+
+interface PyraFace {
+  material: THREE.MeshStandardMaterial;
+  matbas: THREE.MeshBasicMaterial;
+  normal: THREE.Vector3;
+  pieces: PieceFaces[]
+}
+/*
+red     0
+orange  2
+white   4
+yellow  6
+green   8
+blue    10
+*/
+let pyraFaces: PyraFace[] = [
+  {material: basicMaterials[0],  // red
+  matbas: new THREE.MeshBasicMaterial({color: 0xff0000}),
+  normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, 1, 1), new THREE.Vector3(-1, 1, -1)),
+  pieces: [
+    {piece: 6, faces: [2, 5]},
+    {piece: 18, faces: [2, 9]},
+    {piece: 24, faces: [2, 3, 8, 9, 4, 5]},
+    {piece: 26, faces: [5, 9]},
+    {piece: 25, faces: [8, 9, 4, 5]},
+    {piece: 15, faces: [2, 3, 4, 5]},
+    {piece: 21, faces: [2, 3, 8, 9]},
+    {piece: 12, faces: [2]},
+    {piece: 22, faces: [9]},
+    {piece: 16, faces: [5]},
+  ]},
+  {material: basicMaterials[5],  // blue
+    matbas: new THREE.MeshBasicMaterial({color: 0x0080ff}),
+    normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, -1, -1), new THREE.Vector3(1, 1, 1)),
+    pieces: [
+    {piece: 18, faces: [8, 6]},
+    {piece: 2, faces: [6, 1]},
+    {piece: 20, faces: [8, 9, 0, 1, 6, 7]},
+    {piece: 26, faces: [8, 1]},
+    {piece: 23, faces: [8, 9, 0, 1]},
+    {piece: 19, faces: [8, 9, 6, 7]},
+    {piece: 11, faces: [0, 1, 6, 7]},
+    {piece: 22, faces: [8]},
+    {piece: 14, faces: [1]},
+    {piece: 10, faces: [6]},
+  ]},
+  {material: basicMaterials[3],  // yellow
+    matbas: new THREE.MeshBasicMaterial({color: 0xffff00}),
+    normal: calculateNormal(new THREE.Vector3(1, -1, -1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, 1, 1)),
+    pieces: [
+    {piece: 26, faces: [0, 4]},
+    {piece: 6, faces: [4, 11]},
+    {piece: 8, faces: [0, 1, 4, 5, 10, 11]},
+    {piece: 2, faces: [0, 11]},
+    {piece: 17, faces: [4, 5, 0, 1]},
+    {piece: 7, faces: [4, 5, 10, 11]},
+    {piece: 5, faces: [0, 1, 10, 11]},
+    {piece: 16, faces: [4]},
+    {piece: 14, faces: [0]},
+    {piece: 4, faces: [11]},
+  ]},
+  {material: basicMaterials[4],  // green
+    matbas: new THREE.MeshBasicMaterial({color: 0x00ff00}),
+    normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, -1, -1)),
+    pieces: [
+    {piece: 2, faces: [10, 7]},
+    {piece: 18, faces: [3, 7]},
+    {piece: 0, faces: [10, 11, 2, 3, 6, 7]},
+    {piece: 6, faces: [10, 3]},
+    {piece: 3, faces: [10, 11, 2, 3]},
+    {piece: 1, faces: [10, 11, 6, 7]},
+    {piece: 9, faces: [2, 3, 6, 7]},
+    {piece: 4, faces: [10]},
+    {piece: 12, faces: [3]},
+    {piece: 10, faces: [7]},
+  ]},
+];
+
+function createPyraFaceLines(): void {
+  pyraFaces.forEach((pyraFaceObj) => {
+    let normal = pyraFaceObj.normal;
+    let linePositions: THREE.Vector3[] = [];
+    linePositions.push(new THREE.Vector3(0, 0, 0));
+    linePositions.push(normal.multiplyScalar(5));
+    let lineGeometry = new THREE.BufferGeometry().setFromPoints(linePositions);
+    let line = new THREE.Line(lineGeometry, pyraFaceObj.matbas);
+    baseGroup.add(line);
+  });
+}
+
 function createGeometry(cubeIndex: number): BoxGeometryEnh {
   // special setups so that the square face triangulation diagonals meet at the focus corners, needed for the 4 pyramorphix corners
   const specialDiagFocus = new Map();
@@ -262,6 +370,28 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
     });
     geometry.morphAttributes.position = [];
     geometry.morphAttributes.position[ 0 ] = newPositions;
+
+    let newNormals = geometry.attributes.normal.clone()
+    const groupStarts: number[] = [];
+    const groupCounts: number[] = [];
+    geometry.groups.forEach((group) => {
+      groupStarts.push(group.start);
+      groupCounts.push(group.count);
+    });
+    pyraFaces.forEach((pyraFaceObj) => {
+      pyraFaceObj.pieces.forEach((pieceObj) => {
+        if (pieceObj.piece === cubeIndex) {          
+          pieceObj.faces.forEach((f) => {
+            for (let i = groupStarts[f]; i < groupStarts[f] + groupCounts[f]; i++) {
+              newNormals.setXYZ(i, pyraFaceObj.normal.x, pyraFaceObj.normal.y, pyraFaceObj.normal.z);
+            }
+          });
+        }
+      });
+    });  
+    
+    geometry.morphAttributes.normal = [];
+    geometry.morphAttributes.normal[0] = newNormals;
   } 
   
   // add geometry to show normals using VertexNormalsHelper
@@ -270,14 +400,22 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
   return geometry;
 }
 
-function createSingleCube(x: number, y: number, z: number): THREE.Mesh {
+function createSingleCube(x: number, y: number, z: number): THREE.Group {
   let geometry: BoxGeometryEnh| null = createGeometry((x+1) + (y+1) * 3 + (z+1) * 9);
-  let cube = new THREE.Mesh(geometry, blackMaterial);
-  cube.matrixAutoUpdate = false;
-  cube.position.set(x, y, z);
-  cube.updateMatrix();
-  baseGroup.add(cube);
-  return cube;
+  let box = new THREE.Mesh(geometry, blackMaterial);
+  box.name = "box";
+  let group = new THREE.Group();
+  group.matrixAutoUpdate = false;
+  group.add(box);
+  group.position.set(x, y, z);
+  group.updateMatrix();
+  baseGroup.add(group);
+  return group;
+}
+
+function getBox(piece: THREE.Group): THREE.Mesh {
+  let box = piece.children.filter((child) => { return child.name === "box"; })[0];
+  return box !== null ? box as THREE.Mesh : new THREE.Mesh();
 }
 
 // the cube model (pieces) is simply the list of cube objects sorted by z,y,x ascending
@@ -287,14 +425,38 @@ function createAllCubes(): void {
   for (let z = -1; z <= 1; z++) {
     for (let y = -1; y <= 1; y++) {
       for (let x = -1; x <= 1; x++) {
-        let cube = createSingleCube(x, y, z);
-        rotPieces.push(cube);
-        fixedPieces.push(cube);
+        let piece = createSingleCube(x, y, z);
+        rotPieces.push(piece);
+        fixedPieces.push(piece);
       }
     }
   }
   setAllCubeFaces();
-  setPyraNormals();
+}
+
+function addNormals(): void {
+  for (let z = -1; z <= 1; z++) {
+    for (let y = -1; y <= 1; y++) {
+      for (let x = -1; x <= 1; x++) {
+        let piece = fixedPieces[(x+1) + (y+1) * 3 + (z+1) * 9];
+        let vnh = createNormals(getBox(piece));
+        vnh.position.set(x, y, z);
+        scene.add(vnh);
+        vnHelpers.push(vnh);
+      }
+    }
+  }
+}
+
+function removeNormals(): void {
+  vnHelpers.forEach((vnHelper) => {
+    vnHelper.children.forEach((arrow) => {
+      vnHelper.remove(arrow);
+      (arrow as THREE.ArrowHelper).dispose();
+    });
+    scene.remove(vnHelper);
+  });
+  vnHelpers = [];
 }
 
 function setAllCubeFaces(): void {
@@ -311,7 +473,7 @@ function setAllCubeFaces(): void {
 
 function setAllCubeWireframes(): void {
   fixedPieces.forEach((piece) => {
-    piece.material = wireframeMaterial;      
+    getBox(piece).material = wireframeMaterial;      
   });
 }
 
@@ -320,7 +482,7 @@ function setAllCubeColors(): void {
     for (let y = -1; y <= 1; y++) {
       for (let x = -1; x <= 1; x++) {
         let index = (x+1) + (y+1)*3 + (z+1)*9;
-        let cube = fixedPieces[index];
+        let piece = fixedPieces[index];
 
         let materials: THREE.MeshStandardMaterial[] = [];
         for (let i = 0; i < 12; i++) {
@@ -329,7 +491,7 @@ function setAllCubeColors(): void {
         setCubeFaceColor(materials, x, 1, 0);
         setCubeFaceColor(materials, y, 3, 2);
         setCubeFaceColor(materials, z, 5, 4);
-        cube.material = materials;      
+        getBox(piece).material = materials;      
       }
     }
   }
@@ -345,157 +507,29 @@ function setCubeFaceColor(materials: THREE.MeshStandardMaterial[], index: number
   }
 }
 
-function calculateNormal(A: THREE.Vector3, B: THREE.Vector3, C: THREE.Vector3): THREE.Vector3 {
-  const vector1 = new THREE.Vector3().subVectors(B, A);
-  const vector2 = new THREE.Vector3().subVectors(C, A);
-  
-  const normal = new THREE.Vector3().crossVectors(vector1, vector2);
-  normal.normalize(); // Normalize the vector to get a unit normal vector
-
-  return normal;
-}
-
-interface PieceFaces {
-  piece: number;
-  faces: number[];
-}
-
-interface PyraFace {
-  material: THREE.MeshStandardMaterial;
-  normal: THREE.Vector3;
-  pieces: PieceFaces[]
-}
-/*
-red     0
-orange  2
-white   4
-yellow  6
-green   8
-blue    10
-*/
-let pyraFaces: PyraFace[] = [
-  {material: basicMaterials[0], 
-  normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, 1, 1)),
-  pieces: [ // red
-    {piece: 6, faces: [2, 5]},
-    {piece: 18, faces: [2, 9]},
-    {piece: 24, faces: [2, 3, 8, 9, 4, 5]},
-    {piece: 26, faces: [5, 9]},
-    {piece: 25, faces: [8, 9, 4, 5]},
-    {piece: 15, faces: [2, 3, 4, 5]},
-    {piece: 21, faces: [2, 3, 8, 9]},
-    {piece: 12, faces: [2]},
-    {piece: 22, faces: [9]},
-    {piece: 16, faces: [5]},
-  ]},
-  {material: basicMaterials[5], 
-    normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, 1, -1), new THREE.Vector3(1, 1, 1)),
-    pieces: [ // blue
-    {piece: 18, faces: [8, 6]},
-    {piece: 2, faces: [6, 1]},
-    {piece: 20, faces: [8, 9, 0, 1, 6, 7]},
-    {piece: 26, faces: [8, 1]},
-    {piece: 23, faces: [8, 9, 0, 1]},
-    {piece: 19, faces: [8, 9, 6, 7]},
-    {piece: 11, faces: [0, 1, 6, 7]},
-    {piece: 22, faces: [8]},
-    {piece: 14, faces: [1]},
-    {piece: 10, faces: [6]},
-  ]},
-  {material: basicMaterials[3], 
-    normal: calculateNormal(new THREE.Vector3(1, 1, -1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, 1, 1)),
-    pieces: [ // yellow
-    {piece: 26, faces: [0, 4]},
-    {piece: 6, faces: [4, 11]},
-    {piece: 8, faces: [0, 1, 4, 5, 10, 11]},
-    {piece: 2, faces: [0, 11]},
-    {piece: 17, faces: [4, 5, 0, 1]},
-    {piece: 7, faces: [4, 5, 10, 11]},
-    {piece: 5, faces: [0, 1, 10, 11]},
-    {piece: 16, faces: [4]},
-    {piece: 14, faces: [0]},
-    {piece: 4, faces: [11]},
-  ]},
-  {material: basicMaterials[4], 
-    normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, -1, -1)),
-    pieces: [ // green
-    {piece: 2, faces: [10, 7]},
-    {piece: 18, faces: [3, 7]},
-    {piece: 0, faces: [10, 11, 2, 3, 6, 7]},
-    {piece: 6, faces: [10, 3]},
-    {piece: 3, faces: [10, 11, 2, 3]},
-    {piece: 1, faces: [10, 11, 6, 7]},
-    {piece: 9, faces: [2, 3, 6, 7]},
-    {piece: 4, faces: [10]},
-    {piece: 12, faces: [3]},
-    {piece: 10, faces: [7]},
-  ]},
-];
-
 function setAllPyraColors(): void {
   let initialMaterials: THREE.MeshStandardMaterial[] = [];
   for (let i = 0; i < 12; i++) {
     initialMaterials.push(blackMaterial);
   }
   fixedPieces.forEach((piece) => {
-    piece.material = initialMaterials;      
+    getBox(piece).material = initialMaterials;      
   });
   pyraFaces.forEach((pyraFaceObj) => {
     pyraFaceObj.pieces.forEach((pieceObj) => {
-      let cube = fixedPieces[pieceObj.piece];
-      if (cube.material instanceof Array) {
-        let materials = cube.material.slice();
+      let box = getBox(fixedPieces[pieceObj.piece]);
+      if (box.material instanceof Array) {
+        let materials = box.material.slice();
         for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
         pieceObj.faces.forEach((face) => {
           materials[face] = pyraFaceObj.material;
         });
-        cube.material = materials;      
+        box.material = materials;      
       }
     });
   });  
-}
-
-function setPyraNormals(): void {
-  const morphNormals: THREE.BufferAttribute[] = [];
-  const groupStarts: number[][] = [];
-  const groupCounts: number[][] = [];
-
-  fixedPieces.forEach((piece, pieceNo) => {
-    const normals = piece.geometry.attributes.normal;
-    // morphNormals.push(normals.clone());
-
-    // const morphNormals = new Float32Array(piece.geometry.attributes.normal.array.length);
-    // morphNormals.set(piece.geometry.attributes.normal.array);
-    // piece.geometry.morphAttributes.normal = [new THREE.Float32BufferAttribute(morphNormals, 3)];
-  
-
-    groupStarts.push([]);
-    groupCounts.push([]);
-    (piece.geometry as BoxGeometryEnh).groups.forEach((group) => {
-      groupStarts[pieceNo].push(group.start);
-      groupCounts[pieceNo].push(group.count);
-    });  
-  });
-
-  // pyraFaces.forEach((pyraFaceObj) => {
-  //   pyraFaceObj.pieces.forEach((pieceObj) => {
-  //     const p = pieceObj.piece;
-  //     const normals = morphNormals[p];
-      
-  //     pieceObj.faces.forEach((f) => {
-  //       for (let i = groupStarts[p][f]; i < groupStarts[p][f] + groupCounts[p][f]; i++) {
-  //         normals.setXYZ(i, pyraFaceObj.normal.x, pyraFaceObj.normal.y, pyraFaceObj.normal.z);
-  //       }
-  //     });
-  //   });
-  // });  
-
-  // fixedPieces.forEach((piece, index) => {
-  //   piece.geometry.morphAttributes.normal = [];
-  //   piece.geometry.morphAttributes.normal[ 0 ] = morphNormals[index];
-  // });
 }
 
 function setAllCubeNumbers(): void {
@@ -515,7 +549,8 @@ function setAllCubeNumbers(): void {
     const texture = new THREE.Texture(canvas);
     texture.needsUpdate = true;
     const mat = new THREE.MeshStandardMaterial({map: texture});
-    piece.material = mat;
+    let box = getBox(piece);
+    box.material = mat;
   });
 }
 
@@ -626,7 +661,7 @@ function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
   }
 }
 
-function toggleHideObjects(objects: THREE.Mesh[]): void {
+function toggleHideObjects(objects: THREE.Object3D[]): void {
   objects.forEach((object) => {
     object.visible = !object.visible;
   });
@@ -698,7 +733,7 @@ function rotate(key: string): void {
   setAllCubeFaces();
 }
 
-function rotateGraphics(pieces: THREE.Mesh[], axis: string, degrees: number): void {
+function rotateGraphics(pieces: THREE.Group[], axis: string, degrees: number): void {
   // rotate the selected pieces as animation
   pieces.forEach((piece) => {
     const startMatrix = piece.matrixWorld.clone();
@@ -731,10 +766,10 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Mesh[] {
+function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Group[] {
   // rotate the cube model. It must follow the rotation so that slices can properly be selected after each rotation
   let keyLc = key === key.toLowerCase();
-  let piecesToRotate: THREE.Mesh[] = []; // the pieces to rotate
+  let piecesToRotate: THREE.Group[] = []; // the pieces to rotate
   switch (key.toLowerCase()) {
     case "x":
       piecesToRotate = rotPieces;
@@ -860,16 +895,50 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
   });
 }
 
+function createNormals(mesh: THREE.Mesh): THREE.Group {
+  const group = new THREE.Group();
+  let pos1 = mesh.geometry.attributes.position;
+  let norm1 = mesh.geometry.attributes.normal;
+  let pos2 = mesh.geometry.morphAttributes.position[0];
+  let norm2 = mesh.geometry.morphAttributes.normal[0];
+  let lerp = 0;
+  if (typeof mesh.morphTargetInfluences !== 'undefined') {
+     lerp = mesh.morphTargetInfluences[0];
+  }
+  for (let i = 0; i < pos1.count; i++) {
+    let p1 = new THREE.Vector3().fromBufferAttribute(pos1, i);
+    let n1 = new THREE.Vector3().fromBufferAttribute(norm1, i);
+    let p2 = new THREE.Vector3().fromBufferAttribute(pos2, i);
+    let n2 = new THREE.Vector3().fromBufferAttribute(norm2, i);
+    let p = new THREE.Vector3().lerpVectors(p1, p2, lerp);
+    let n = new THREE.Vector3().lerpVectors(n1, n2, lerp);
+    let arrow = new THREE.ArrowHelper(n, p, 0.5, 0xff0000);
+    group.add(arrow);  
+  }
+  return group;
+}
+
 function morphToPyra(from: number, to: number): void {
   const animObj = {lerpFactor: from};
   let tl = gsap.timeline();
   tl.to(animObj, {
     lerpFactor: to, duration: 1, ease: "linear",
     onUpdate: () => {
+      // vnHelpers.forEach((vnHelper) => {
+      //   vnHelper.children.forEach((arrow) => {
+      //     vnHelper.remove(arrow);
+      //     (arrow as THREE.ArrowHelper).dispose();
+      //   });
+      //   scene.remove(vnHelper);
+      // });
       fixedPieces.forEach((piece) => {
-        if ( typeof piece.morphTargetInfluences !== 'undefined') {
-          piece.morphTargetInfluences[ 0 ] = animObj.lerpFactor;
-        }  
+        let box = getBox(piece);
+        if ( typeof box.morphTargetInfluences !== 'undefined') {
+          box.morphTargetInfluences[ 0 ] = animObj.lerpFactor;
+        }
+        // let vnh = createNormals(piece);
+        // scene.add(vnh);
+        // vnHelpers.push(vnh);
       });
     }
   });
@@ -937,7 +1006,14 @@ function onKeyDown(event: KeyboardEvent): void {
     case "1":
       toggleShowOneCube();
       break;
-
+    case "2":
+      addNormals();
+      break;
+    case "3":
+      removeNormals();
+      break;
+      
+  
     case "l": // left
     case "L":
     case "m": // middle
