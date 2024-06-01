@@ -49,21 +49,21 @@ export class BoxGeometryEnh extends BufferGeometry {
 		const diagFocusLists = [
 			//  red, orange, white, yellow, green, blue
 			[false,false,false,false,false,false],  // all other cubes
-			[true,false,true,false,false,true],	    // cube 26
-			[false,true,true,false,false,false],  // cube 6
-			[false,true,false,true,false,false],    // cube 18
-			[true,false,false,true,true,false]   // cube 2
+			[true,false,true,false,false,true],	    // cube 0, 26
+			[false,true,true,false,true,false],  // cube 6, 20
+			[false,true,false,true,false,true],    // cube 8, 18
+			[true,false,false,true,true,false]   // cube 2, 24
 		];
-		const otherDiagList = diagFocusLists[diagFocus];
+		const diagSwaps = diagFocusLists[diagFocus];
 
 		// build each side of the box geometry
 
-		buildPlane( 'z', 'y', 'x', - 1, - 1, depth, height, width, depthSegments, heightSegments, otherDiagList[0], 0 ); // px
-		buildPlane( 'z', 'y', 'x', 1, - 1, depth, height, - width, depthSegments, heightSegments, otherDiagList[1], 1 ); // nx
-		buildPlane( 'x', 'z', 'y', 1, 1, width, depth, height, widthSegments, depthSegments, otherDiagList[2], 2 ); // py
-		buildPlane( 'x', 'z', 'y', 1, - 1, width, depth, - height, widthSegments, depthSegments, otherDiagList[3], 3 ); // ny
-		buildPlane( 'x', 'y', 'z', 1, - 1, width, height, depth, widthSegments, heightSegments, otherDiagList[4], 4 ); // pz
-		buildPlane( 'x', 'y', 'z', - 1, - 1, width, height, - depth, widthSegments, heightSegments, otherDiagList[5], 5 ); // nz
+		buildPlane( 'z', 'y', 'x', -1, -1, depth, height,  width, depthSegments, heightSegments, diagSwaps[0], 0 ); // px, red
+		buildPlane( 'z', 'y', 'x',  1, -1, depth, height, -width, depthSegments, heightSegments, diagSwaps[1], 1 ); // nx, orange
+		buildPlane( 'x', 'z', 'y',  1,  1, width, depth,  height, widthSegments,  depthSegments, diagSwaps[2], 2 ); // py, white
+		buildPlane( 'x', 'z', 'y',  1, -1, width, depth, -height, widthSegments,  depthSegments, diagSwaps[3], 3 ); // ny, yellow
+		buildPlane( 'x', 'y', 'z',  1, -1, width, height,  depth, widthSegments, heightSegments, diagSwaps[4], 4 ); // pz, green
+		buildPlane( 'x', 'y', 'z', -1, -1, width, height, -depth, widthSegments, heightSegments, diagSwaps[5], 5 ); // nz, blue
 
 		// build geometry
 
@@ -119,6 +119,7 @@ export class BoxGeometryEnh extends BufferGeometry {
 					// now apply vector to vertex buffer
 
 					vertices.push( vector.x, vector.y, vector.z );
+					vertices.push( vector.x, vector.y, vector.z );
 
 					// set values to correct vector component
 
@@ -129,15 +130,18 @@ export class BoxGeometryEnh extends BufferGeometry {
 					// now apply vector to normal buffer
 
 					normals.push( vector.x, vector.y, vector.z );
+					normals.push( vector.x, vector.y, vector.z );
 
 					// uvs
 
 					uvs.push( ix / gridX );
 					uvs.push( 1 - ( iy / gridY ) );
+					uvs.push( ix / gridX );
+					uvs.push( 1 - ( iy / gridY ) );
 
 					// counters
 
-					vertexCounter += 1;
+					vertexCounter += 2;
 
 				}
 
@@ -164,21 +168,21 @@ export class BoxGeometryEnh extends BufferGeometry {
 
 				for ( let ix = 0; ix < gridX; ix ++ ) {
 
-					const a = numberOfVertices + ix + gridX1 * iy;
-					const b = numberOfVertices + ix + gridX1 * ( iy + 1 );
-					const c = numberOfVertices + ( ix + 1 ) + gridX1 * ( iy + 1 );
-					const d = numberOfVertices + ( ix + 1 ) + gridX1 * iy;
+					const a = numberOfVertices + (ix + gridX1 * iy)*2;
+					const b = numberOfVertices + (ix + gridX1 * ( iy + 1 ))*2;
+					const c = numberOfVertices + (( ix + 1 ) + gridX1 * ( iy + 1 ))*2;
+					const d = numberOfVertices + (( ix + 1 ) + gridX1 * iy)*2;
 
 					// faces
 
 					if (otherDiagonal) {
 						indices.push( a, b, c );
 						firstGroup();
-						indices.push( a, c, d);
+						indices.push( a+1, c+1, d+1);
 					} else {
 						indices.push( a, b, d );
 						firstGroup();
-						indices.push( b, c, d );
+						indices.push( b+1, c+1, d+1 );
 					}
 
 					// increase counter

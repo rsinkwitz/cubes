@@ -43,7 +43,6 @@ let infoGroups: THREE.Group[] = [];
 
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
-let vnHelpers: THREE.Group[] = [];
 
 const basicMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({color: 0xff0000}), // right  red     0
@@ -84,6 +83,7 @@ function init(): void {
   createDirLight(5, 0, 2);
   createDirLight(0, -5, 2);
   createDirLight(0, 5, 2);
+  createDirLight(0, 0, -2);
 
   camera.position.set(2, 2, 5);
   controls.update();
@@ -101,7 +101,7 @@ function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight
 
 function createMain() {
   createAllCubes();
-  createPyraFaceLines();
+  // createPyraFaceLines();
   //createBeveledCube();
 }
 
@@ -155,7 +155,7 @@ function resetMain() {
 
 function toggleAxes(): void {
   showAxes = !showAxes;
-  baseGroup.children.forEach((child) => {
+  scene.children.forEach((child) => {
     if (child instanceof THREE.AxesHelper) {
       child.visible = showAxes;
     }
@@ -164,10 +164,8 @@ function toggleAxes(): void {
 
 function toggleShowOneCube(): void {
   isShowOneCube = !isShowOneCube;
-  rotPieces.forEach((piece,index) => {
-    if (index !== 26) {
-      piece.visible = isShowOneCube;
-    }
+  fixedPieces.forEach((piece,index) => {
+    piece.visible = isShowOneCube ? (index === testIndex) : true;
   });
 }
 
@@ -246,23 +244,13 @@ interface PieceFaces {
 }
 
 interface PyraFace {
-  material: THREE.MeshStandardMaterial;
-  matbas: THREE.MeshBasicMaterial;
-  normal: THREE.Vector3;
+  material: THREE.Material;
   pieces: PieceFaces[]
 }
-/*
-red     0
-orange  2
-white   4
-yellow  6
-green   8
-blue    10
-*/
+
+// face index on cube: red     0, orange  2, white   4, yellow  6, green   8, blue    10
 let pyraFaces: PyraFace[] = [
   {material: basicMaterials[0],  // red
-  matbas: new THREE.MeshBasicMaterial({color: 0xff0000}),
-  normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, 1, 1), new THREE.Vector3(-1, 1, -1)),
   pieces: [
     {piece: 6, faces: [2, 5]},
     {piece: 18, faces: [2, 9]},
@@ -276,8 +264,6 @@ let pyraFaces: PyraFace[] = [
     {piece: 16, faces: [5]},
   ]},
   {material: basicMaterials[5],  // blue
-    matbas: new THREE.MeshBasicMaterial({color: 0x0080ff}),
-    normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, -1, -1), new THREE.Vector3(1, 1, 1)),
     pieces: [
     {piece: 18, faces: [8, 6]},
     {piece: 2, faces: [6, 1]},
@@ -291,8 +277,6 @@ let pyraFaces: PyraFace[] = [
     {piece: 10, faces: [6]},
   ]},
   {material: basicMaterials[3],  // yellow
-    matbas: new THREE.MeshBasicMaterial({color: 0xffff00}),
-    normal: calculateNormal(new THREE.Vector3(1, -1, -1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, 1, 1)),
     pieces: [
     {piece: 26, faces: [0, 4]},
     {piece: 6, faces: [4, 11]},
@@ -306,8 +290,6 @@ let pyraFaces: PyraFace[] = [
     {piece: 4, faces: [11]},
   ]},
   {material: basicMaterials[4],  // green
-    matbas: new THREE.MeshBasicMaterial({color: 0x00ff00}),
-    normal: calculateNormal(new THREE.Vector3(-1, -1, 1), new THREE.Vector3(-1, 1, -1), new THREE.Vector3(1, -1, -1)),
     pieces: [
     {piece: 2, faces: [10, 7]},
     {piece: 18, faces: [3, 7]},
@@ -322,25 +304,29 @@ let pyraFaces: PyraFace[] = [
   ]},
 ];
 
-function createPyraFaceLines(): void {
-  pyraFaces.forEach((pyraFaceObj) => {
-    let normal = pyraFaceObj.normal;
-    let linePositions: THREE.Vector3[] = [];
-    linePositions.push(new THREE.Vector3(0, 0, 0));
-    linePositions.push(normal.multiplyScalar(5));
-    let lineGeometry = new THREE.BufferGeometry().setFromPoints(linePositions);
-    let line = new THREE.Line(lineGeometry, pyraFaceObj.matbas);
-    baseGroup.add(line);
-  });
-}
+// function createPyraFaceLines(): void {
+//   pyraFaces.forEach((pyraFaceObj) => {
+//     let normal = pyraFaceObj.normal;
+//     let linePositions: THREE.Vector3[] = [];
+//     linePositions.push(new THREE.Vector3(0, 0, 0));
+//     linePositions.push(normal.multiplyScalar(5));
+//     let lineGeometry = new THREE.BufferGeometry().setFromPoints(linePositions);
+//     let line = new THREE.Line(lineGeometry, new THREE.MeshBasicMaterial({color: pyraFaceObj.color}));
+//     baseGroup.add(line);
+//   });
+// }
 
 function createGeometry(cubeIndex: number): BoxGeometryEnh {
   // special setups so that the square face triangulation diagonals meet at the focus corners, needed for the 4 pyramorphix corners
   const specialDiagFocus = new Map();
+  specialDiagFocus.set(0, 1);
   specialDiagFocus.set(26, 1);
+  specialDiagFocus.set(8, 3);
   specialDiagFocus.set(18, 3);
   specialDiagFocus.set(6, 2);
+  specialDiagFocus.set(20, 2);
   specialDiagFocus.set(2, 4);
+  specialDiagFocus.set(24, 4);
   specialDiagFocus.set(12, 2);
   specialDiagFocus.set(22, 1);
   specialDiagFocus.set(16, 1);
@@ -358,45 +344,30 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
       console.log("modifying idx=" + cubeIndex + "with pos: "+ mod.idx);
       meshCornerLinePositions[mod.idx].forEach((clPosition) => {
         if (mod.x !== 99) {
-          newPositions.setX(clPosition, mod.x);
+          newPositions.setX(clPosition*2, mod.x);
+          newPositions.setX(clPosition*2+1, mod.x);
         }
         if (mod.y !== 99) {
-          newPositions.setY(clPosition, mod.y);
+          newPositions.setY(clPosition*2, mod.y);
+          newPositions.setY(clPosition*2+1, mod.y);
         }
         if (mod.z !== 99) {
-          newPositions.setZ(clPosition, mod.z);
+          newPositions.setZ(clPosition*2, mod.z);
+          newPositions.setZ(clPosition*2+1, mod.z);
         }  
       });
     });
-    geometry.morphAttributes.position = [];
-    geometry.morphAttributes.position[ 0 ] = newPositions;
+    geometry.morphAttributes.position = [newPositions];
 
-    let newNormals = geometry.attributes.normal.clone()
-    const groupStarts: number[] = [];
-    const groupCounts: number[] = [];
-    geometry.groups.forEach((group) => {
-      groupStarts.push(group.start);
-      groupCounts.push(group.count);
-    });
-    pyraFaces.forEach((pyraFaceObj) => {
-      pyraFaceObj.pieces.forEach((pieceObj) => {
-        if (pieceObj.piece === cubeIndex) {          
-          pieceObj.faces.forEach((f) => {
-            for (let i = groupStarts[f]; i < groupStarts[f] + groupCounts[f]; i++) {
-              newNormals.setXYZ(i, pyraFaceObj.normal.x, pyraFaceObj.normal.y, pyraFaceObj.normal.z);
-            }
-          });
-        }
-      });
-    });  
-    
-    geometry.morphAttributes.normal = [];
-    geometry.morphAttributes.normal[0] = newNormals;
+    // create normals for the modified geometry
+    const tempGeometry = new THREE.BufferGeometry();
+    tempGeometry.setAttribute('position', newPositions);
+    if (geometry.index) {
+      tempGeometry.setIndex(geometry.index.clone());
+    }
+    tempGeometry.computeVertexNormals();
+    geometry.morphAttributes.normal = [tempGeometry.getAttribute('normal')];
   } 
-  
-  // add geometry to show normals using VertexNormalsHelper
-  // const helper = new VertexNormalsHelper(geometry, 0.2, 0x00ff00);
-  // baseGroup.add(helper);
   return geometry;
 }
 
@@ -422,12 +393,15 @@ function getBox(piece: THREE.Group): THREE.Mesh {
 function createAllCubes(): void {
   rotPieces = [];
   fixedPieces = [];
+  let index = 0;
   for (let z = -1; z <= 1; z++) {
     for (let y = -1; y <= 1; y++) {
       for (let x = -1; x <= 1; x++) {
         let piece = createSingleCube(x, y, z);
         rotPieces.push(piece);
         fixedPieces.push(piece);
+        piece.visible = isShowOneCube ? (index === 26) : true;
+        index++;
       }
     }
   }
@@ -435,35 +409,32 @@ function createAllCubes(): void {
 }
 
 function addNormals(): void {
-  for (let z = -1; z <= 1; z++) {
-    for (let y = -1; y <= 1; y++) {
-      for (let x = -1; x <= 1; x++) {
-        let piece = fixedPieces[(x+1) + (y+1) * 3 + (z+1) * 9];
-        let vnh = createNormals(getBox(piece));
-        vnh.position.set(x, y, z);
-        scene.add(vnh);
-        vnHelpers.push(vnh);
-      }
-    }
-  }
+  fixedPieces.forEach((piece) => {
+    let vnh = createNormals(getBox(piece));
+    piece.add(vnh);
+  });
 }
 
 function removeNormals(): void {
-  vnHelpers.forEach((vnHelper) => {
-    vnHelper.children.forEach((arrow) => {
-      vnHelper.remove(arrow);
-      (arrow as THREE.ArrowHelper).dispose();
+  fixedPieces.forEach((piece) => {
+    piece.children.forEach((pc) => {
+      if (pc.name === "normals") {
+        pc.children.forEach((ah) => {
+          if (ah instanceof THREE.ArrowHelper) {
+            pc.remove(ah);
+            (ah as THREE.ArrowHelper).dispose();
+          }
+        });
+      }
     });
-    scene.remove(vnHelper);
   });
-  vnHelpers = [];
 }
 
 function setAllCubeFaces(): void {
-  if (showNumbers) {
-    setAllCubeNumbers();
-  } else if (isWireframe) {
+ if (isWireframe) {
     setAllCubeWireframes();
+  } else if (showNumbers) {
+    setAllCubeNumbers();
   } else if (isPyraColors) {
     setAllPyraColors();
   } else {
@@ -484,7 +455,7 @@ function setAllCubeColors(): void {
         let index = (x+1) + (y+1)*3 + (z+1)*9;
         let piece = fixedPieces[index];
 
-        let materials: THREE.MeshStandardMaterial[] = [];
+        let materials: THREE.Material[] = [];
         for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
@@ -497,7 +468,7 @@ function setAllCubeColors(): void {
   }
 }
 
-function setCubeFaceColor(materials: THREE.MeshStandardMaterial[], index: number, i1: number, i2: number): void {
+function setCubeFaceColor(materials: THREE.Material[], index: number, i1: number, i2: number): void {
   if (index === -1) {
     materials[i1*2] = basicMaterials[i1];
     materials[i1*2+1] = basicMaterials[i1];
@@ -508,7 +479,7 @@ function setCubeFaceColor(materials: THREE.MeshStandardMaterial[], index: number
 }
 
 function setAllPyraColors(): void {
-  let initialMaterials: THREE.MeshStandardMaterial[] = [];
+  let initialMaterials: THREE.Material[] = [];
   for (let i = 0; i < 12; i++) {
     initialMaterials.push(blackMaterial);
   }
@@ -897,23 +868,25 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
 
 function createNormals(mesh: THREE.Mesh): THREE.Group {
   const group = new THREE.Group();
-  let pos1 = mesh.geometry.attributes.position;
-  let norm1 = mesh.geometry.attributes.normal;
-  let pos2 = mesh.geometry.morphAttributes.position[0];
-  let norm2 = mesh.geometry.morphAttributes.normal[0];
-  let lerp = 0;
-  if (typeof mesh.morphTargetInfluences !== 'undefined') {
-     lerp = mesh.morphTargetInfluences[0];
-  }
-  for (let i = 0; i < pos1.count; i++) {
-    let p1 = new THREE.Vector3().fromBufferAttribute(pos1, i);
-    let n1 = new THREE.Vector3().fromBufferAttribute(norm1, i);
-    let p2 = new THREE.Vector3().fromBufferAttribute(pos2, i);
-    let n2 = new THREE.Vector3().fromBufferAttribute(norm2, i);
-    let p = new THREE.Vector3().lerpVectors(p1, p2, lerp);
-    let n = new THREE.Vector3().lerpVectors(n1, n2, lerp);
-    let arrow = new THREE.ArrowHelper(n, p, 0.5, 0xff0000);
-    group.add(arrow);  
+  group.name = "normals";
+
+  // let pos1 = mesh.geometry.attributes.position;
+  // let norm1 = mesh.geometry.attributes.normal;
+  // for (let i = 0; i < pos1.count; i++) {
+  //   let p1 = new THREE.Vector3().fromBufferAttribute(pos1, i);
+  //   let n1 = new THREE.Vector3().fromBufferAttribute(norm1, i);
+  //   let arrow = new THREE.ArrowHelper(n1, p1, 0.25, 0xff0000);
+  //   group.add(arrow);  
+  // }
+  if (typeof mesh.geometry.morphAttributes.position !== "undefined") {
+    let pos2 = mesh.geometry.morphAttributes.position[0];
+    let norm2 = mesh.geometry.morphAttributes.normal[0];
+    for (let i = 0; i < pos2.count; i++) {
+      let p2 = new THREE.Vector3().fromBufferAttribute(pos2, i);
+      let n2 = new THREE.Vector3().fromBufferAttribute(norm2, i);
+      let arrow2 = new THREE.ArrowHelper(n2, p2, 0.5, 0x00ff00);
+      group.add(arrow2);  
+    }
   }
   return group;
 }
@@ -924,21 +897,11 @@ function morphToPyra(from: number, to: number): void {
   tl.to(animObj, {
     lerpFactor: to, duration: 1, ease: "linear",
     onUpdate: () => {
-      // vnHelpers.forEach((vnHelper) => {
-      //   vnHelper.children.forEach((arrow) => {
-      //     vnHelper.remove(arrow);
-      //     (arrow as THREE.ArrowHelper).dispose();
-      //   });
-      //   scene.remove(vnHelper);
-      // });
       fixedPieces.forEach((piece) => {
         let box = getBox(piece);
         if ( typeof box.morphTargetInfluences !== 'undefined') {
           box.morphTargetInfluences[ 0 ] = animObj.lerpFactor;
         }
-        // let vnh = createNormals(piece);
-        // scene.add(vnh);
-        // vnHelpers.push(vnh);
       });
     }
   });
@@ -1051,12 +1014,16 @@ function onKeyDown(event: KeyboardEvent): void {
       case "ArrowUp":
       // cube.rotation.x += 0.1;
       // cube.updateMatrix();
-      testIndex++;
+      testIndex = Math.min(testIndex + 1, 26);
+      isShowOneCube=false;
+      toggleShowOneCube();
       break;
     case "ArrowDown":
       // cube.rotation.x -= 0.1;
       // cube.updateMatrix();
-      testIndex--;
+      testIndex = Math.max(testIndex - 1, 0);
+      isShowOneCube=false;
+      toggleShowOneCube();
       break;
     case "ArrowLeft":
       baseGroup.rotation.y += 0.1;
