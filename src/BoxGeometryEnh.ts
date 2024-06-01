@@ -49,10 +49,10 @@ export class BoxGeometryEnh extends BufferGeometry {
 		const diagFocusLists = [
 			//  red, orange, white, yellow, green, blue
 			[false,false,false,false,false,false],  // all other cubes
-			[true,false,true,false,false,true],	    // cube 0, 26
-			[false,true,true,false,true,false],  // cube 6, 20
-			[false,true,false,true,false,true],    // cube 8, 18
-			[true,false,false,true,true,false]   // cube 2, 24
+			[true, false,true, false,false,true ],	// cube 0, 26
+			[false,true, true, false,true, false],  // cube 6, 20
+			[false,true, false,true, false,true ],  // cube 8, 18
+			[true, false,false,true, true, false]   // cube 2, 24
 		];
 		const diagSwaps = diagFocusLists[diagFocus];
 

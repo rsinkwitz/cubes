@@ -34,6 +34,8 @@ let isPyraShape: boolean = false;
 let isPyraColors: boolean = false;
 let testIndex: number = 0;
 let isShowOneCube: boolean = false;
+let cubeSize: number = 0.98;
+let cubeStep: number = 1;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
@@ -79,6 +81,9 @@ function init(): void {
 
   createMain();
 
+  const ambientLight = new THREE.AmbientLight(0x333333);
+  scene.add(ambientLight);
+  
   createDirLight(-5, 0, 2);
   createDirLight(5, 0, 2);
   createDirLight(0, -5, 2);
@@ -179,6 +184,9 @@ function toggleWireframe(): void {
   setAllCubeFaces();
 }
 
+// this list describes for a cube what position indexes are used at each corner to draw the lines, to allow for morphing.
+// each row denotes a corner (x + x*2 + z*4), the values are the indexes in the position array (of BoxGeometry)
+// for BoxGeometryEnh actual indexes values are (value * 2) and (value * 2 + 1), b/c each point is duplicated to avoid interpolated normals
 const meshCornerLinePositions = [
   [6,14,23], // 0
   [3,15,22], // 1
@@ -334,7 +342,7 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
   specialDiagFocus.set(10, 3);
   const diagFocus = specialDiagFocus.get(cubeIndex) || 0;
 
-  const geometry: BoxGeometryEnh = new BoxGeometryEnh(0.95, 0.95, 0.95, 1, 1, 1, diagFocus, true);
+  const geometry: BoxGeometryEnh = new BoxGeometryEnh(cubeSize, cubeSize, cubeSize, 1, 1, 1, diagFocus, true);
   const orgPositions = geometry.attributes.position;
   let newPositions = orgPositions.clone();
 
@@ -378,7 +386,7 @@ function createSingleCube(x: number, y: number, z: number): THREE.Group {
   let group = new THREE.Group();
   group.matrixAutoUpdate = false;
   group.add(box);
-  group.position.set(x, y, z);
+  group.position.set(x * cubeStep, y * cubeStep, z * cubeStep);
   group.updateMatrix();
   baseGroup.add(group);
   return group;
@@ -432,9 +440,9 @@ function removeNormals(): void {
 
 function setAllCubeFaces(): void {
  if (isWireframe) {
-    setAllCubeWireframes();
+    setAllCubesWireframe();
   } else if (showNumbers) {
-    setAllCubeNumbers();
+    setAllCubesNumbered();
   } else if (isPyraColors) {
     setAllPyraColors();
   } else {
@@ -442,7 +450,7 @@ function setAllCubeFaces(): void {
   }
 }
 
-function setAllCubeWireframes(): void {
+function setAllCubesWireframe(): void {
   fixedPieces.forEach((piece) => {
     getBox(piece).material = wireframeMaterial;      
   });
@@ -503,7 +511,7 @@ function setAllPyraColors(): void {
   });  
 }
 
-function setAllCubeNumbers(): void {
+function setAllCubesNumbered(): void {
   rotPieces.forEach((piece, index) => {
     // Create a canvas and draw the index number on it
     const canvas = document.createElement('canvas');
