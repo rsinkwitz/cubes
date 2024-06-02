@@ -37,6 +37,19 @@ let isShowOneCube: boolean = false;
 let cubeSize: number = 0.98;
 let cubeStep: number = 1;
 
+enum ColorMasks {
+  Centers, // centers of all faces
+  WhiteEdges, // edges of white face
+  FirstLayer, // first layer of white face
+  FirstTwoLayers, // first two layers of white face
+  TopCrossFaces, // faces of the top layer cross
+  TopBarFaces, // faces of the top layer left to right
+  TopEllFaces, // faces of the top layer in L-shape (ell)
+  TopThreeEdges, // edges of the top layer
+  TopThreeCornersLeft, // corners of the top layer front and left back
+  TopThreeCornersRight, // corners of the top layer front and right back
+}
+
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
 let fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
@@ -61,7 +74,7 @@ const wireframeMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMate
 function init(): void {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(
-    75,
+    60,
     window.innerWidth / window.innerHeight,
     0.1,
     1000
@@ -69,7 +82,6 @@ function init(): void {
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0xb0c4de); // Light blue-gray color in hexadecimal
-  controls = new OrbitControls(camera, renderer.domElement);
   document.body.appendChild(renderer.domElement);
 
   const axesHelper = new THREE.AxesHelper(3);
@@ -77,9 +89,12 @@ function init(): void {
   scene.add(axesHelper);
 
   baseGroup = new THREE.Group();
+  // baseGroup.rotateX(Math.PI / 4);
   scene.add(baseGroup);
 
   createMain();
+
+  controls = new OrbitControls(camera, renderer.domElement);
 
   const ambientLight = new THREE.AmbientLight(0x333333);
   scene.add(ambientLight);
@@ -90,7 +105,7 @@ function init(): void {
   createDirLight(0, 5, 2);
   createDirLight(0, 0, -2);
 
-  camera.position.set(2, 2, 5);
+  camera.position.set(4, 4, 8);
   controls.update();
   controls.saveState();
 
@@ -349,7 +364,7 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
   // apply morph modifications for the cube indices which form the 2x2x2 cube to morph to a pyramorphix
   if (typeof morphMods[cubeIndex] !== 'undefined') {
     morphMods[cubeIndex].forEach((mod) => {
-      console.log("modifying idx=" + cubeIndex + "with pos: "+ mod.idx);
+      // console.log("modifying idx=" + cubeIndex + "with pos: "+ mod.idx);
       meshCornerLinePositions[mod.idx].forEach((clPosition) => {
         if (mod.x !== 99) {
           newPositions.setX(clPosition*2, mod.x);
@@ -537,6 +552,7 @@ function createRotationInfoGroup(font: Font, key: string, inverse: boolean, x: n
   let group: THREE.Group = new THREE.Group();
   group.add(createOneRotationLetter(font, key, inverse, x, y, z, rotDegrees, rotAxis));
   group.add(createRotationArrow(inverse));
+  group.scale.set(0.5, 0.5, 0.5);
   group.position.set(x * 1.6, y * 1.6, z * 1.6);
   group.rotateOnAxis(rotAxis, rotDegrees * Math.PI / 180);
   baseGroup.add(group);
@@ -709,7 +725,6 @@ function rotate(key: string): void {
 
   let piecesToRotate = rotateModel(key, forward, nums);
   rotateGraphics(piecesToRotate, axis, (key === key.toLowerCase()) ? degrees : -degrees)
-  setAllCubeFaces();
 }
 
 function rotateGraphics(pieces: THREE.Group[], axis: string, degrees: number): void {
@@ -741,7 +756,7 @@ function rotateGraphics(pieces: THREE.Group[], axis: string, degrees: number): v
   });
 }
 
-function sleep(ms: number) {
+function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -818,9 +833,10 @@ function shuffle(): void {
   }
 }
 
-function scaleTo2x2(inverse: boolean): Promise<void> {
-  if (is2x2 !== inverse) {
-    return new Promise((resolve, reject) => {reject()});
+function scaleTo2x2(forward: boolean): Promise<void> {
+  if (forward === is2x2) {
+    console.log("already in desired 2x2 mode: "+forward);
+    return new Promise((resolve, reject) => {resolve();});
   }
   return new Promise((resolve) => {
     let centerIndexes = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
@@ -831,13 +847,13 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
     let cornerPieces = cornerIndexes.map((index) => fixedPieces[index]);
     let cornerStartMatrices = cornerPieces.map((piece) => piece.matrixWorld.clone());
 
-    if (inverse) {
+    if (!forward) {
        centerPieces.forEach((piece) => { piece.visible = true; });
     }
 
-    let lerpCenterScale = inverse ? 1/0.8 : 0.8;
-    let lerpCornerScale = inverse ? 1/1.5 : 1.5;
-    let lerpCornerTranslation = inverse ? 0.75 : -0.5;
+    let lerpCenterScale = forward ? 0.8 : 1/0.8;
+    let lerpCornerScale = forward ? 1.5 : 1/1.5;
+    let lerpCornerTranslation = forward ? -0.5 : 0.75;
 
     const animObj = {lerpCenterScale: 1, lerpCornerScale: 1, lerpCornerTranslation: 0};
 
@@ -864,10 +880,10 @@ function scaleTo2x2(inverse: boolean): Promise<void> {
       },
       onComplete: () => {
         numAnims--;
-        if (!inverse) {
+        if (forward) {
            centerPieces.forEach((piece) => { piece.visible = false; });
         }
-        is2x2 = !inverse;
+        is2x2 = forward;
         resolve();
       }
     });
@@ -878,40 +894,115 @@ function createNormals(mesh: THREE.Mesh): THREE.Group {
   const group = new THREE.Group();
   group.name = "normals";
 
-  // let pos1 = mesh.geometry.attributes.position;
-  // let norm1 = mesh.geometry.attributes.normal;
-  // for (let i = 0; i < pos1.count; i++) {
-  //   let p1 = new THREE.Vector3().fromBufferAttribute(pos1, i);
-  //   let n1 = new THREE.Vector3().fromBufferAttribute(norm1, i);
-  //   let arrow = new THREE.ArrowHelper(n1, p1, 0.25, 0xff0000);
-  //   group.add(arrow);  
-  // }
-  if (typeof mesh.geometry.morphAttributes.position !== "undefined") {
-    let pos2 = mesh.geometry.morphAttributes.position[0];
-    let norm2 = mesh.geometry.morphAttributes.normal[0];
-    for (let i = 0; i < pos2.count; i++) {
-      let p2 = new THREE.Vector3().fromBufferAttribute(pos2, i);
-      let n2 = new THREE.Vector3().fromBufferAttribute(norm2, i);
-      let arrow2 = new THREE.ArrowHelper(n2, p2, 0.5, 0x00ff00);
-      group.add(arrow2);  
-    }
+  if (!isPyraShape) {
+    if (typeof mesh.geometry.morphAttributes.position !== "undefined") {
+      let pos2 = mesh.geometry.morphAttributes.position[0];
+      let norm2 = mesh.geometry.morphAttributes.normal[0];
+      for (let i = 0; i < pos2.count; i++) {
+        let p2 = new THREE.Vector3().fromBufferAttribute(pos2, i);
+        let n2 = new THREE.Vector3().fromBufferAttribute(norm2, i);
+        let arrow2 = new THREE.ArrowHelper(n2, p2, 0.5, 0x00ff00);
+        group.add(arrow2);  
+      }
+    }  
+  } else {
+    let pos1 = mesh.geometry.attributes.position;
+    let norm1 = mesh.geometry.attributes.normal;
+    for (let i = 0; i < pos1.count; i++) {
+      let p1 = new THREE.Vector3().fromBufferAttribute(pos1, i);
+      let n1 = new THREE.Vector3().fromBufferAttribute(norm1, i);
+      let arrow = new THREE.ArrowHelper(n1, p1, 0.25, 0xff0000);
+      group.add(arrow);  
+    }  
   }
   return group;
 }
 
-function morphToPyra(from: number, to: number): void {
-  const animObj = {lerpFactor: from};
-  let tl = gsap.timeline();
-  tl.to(animObj, {
-    lerpFactor: to, duration: 1, ease: "linear",
-    onUpdate: () => {
-      fixedPieces.forEach((piece) => {
-        let box = getBox(piece);
-        if ( typeof box.morphTargetInfluences !== 'undefined') {
-          box.morphTargetInfluences[ 0 ] = animObj.lerpFactor;
-        }
-      });
-    }
+function morphToPyra(forward: boolean): Promise<void> {
+  if (forward === isPyraShape) {
+    console.log("already in desired pyramorphix mode: "+forward);
+    return new Promise((resolve, reject) => {resolve();});
+  }
+  return new Promise((resolve) => {
+    const animObj = { lerpFactor: forward ? 0.0 : 1.0 };
+    let tl = gsap.timeline();
+    tl.to(animObj, {
+      lerpFactor: forward ? 1.0 : 0.0, duration: 1, ease: "linear",
+      onUpdate: () => {
+        fixedPieces.forEach((piece) => {
+          let box = getBox(piece);
+          if (typeof box.morphTargetInfluences !== 'undefined') {
+            box.morphTargetInfluences[0] = animObj.lerpFactor;
+          }
+        });
+      },
+      onComplete: () => {
+        isPyraShape = forward;
+        resolve();
+      }
+    });
+  });
+}
+
+function doInSequence(ops: (() => Promise<void>)[]): Promise<void> {
+  return new Promise((resolve) => {
+    let i = 0;
+    let doNext = () => {
+      if (i < ops.length) {
+        ops[i]().then(() => sleep(500)).then(() => {
+          i++;
+          doNext();
+        });
+      } else {
+        resolve();
+      }
+    };
+    doNext();
+  });
+}
+
+// a function that wraps another function and returns a promise
+// that resolves after the wrapped function has been called
+function wrapInPromise(func: () => void): Promise<void> {
+  return new Promise((resolve) => {
+    func();
+    resolve();
+  });
+}
+
+interface morphPath {
+  from: number;
+  to: number;
+  ops: (() => Promise<void>)[];
+}
+
+// switch between 0=3x3, 1=2x2, 3=pyramorphix, 2=odd pyramorphix with 2x2 centers
+function morphCombined(newState: number): Promise<void> {
+  const paths: morphPath[] = [ 
+    {from: 0, to: 1, ops: [() => scaleTo2x2(true)]},
+    {from: 1, to: 0, ops: [() => scaleTo2x2(false)]},
+    {from: 1, to: 3, ops: [() => morphToPyra(true), () => wrapInPromise(() => setAllPyraColors())]},
+    {from: 3, to: 1, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeFaces())]},
+    {from: 3, to: 2, ops: [() => scaleTo2x2(false)]},
+    {from: 2, to: 3, ops: [() => scaleTo2x2(true)]},
+    {from: 0, to: 3, ops: [() => scaleTo2x2(true), () => morphToPyra(true), () => wrapInPromise(() => setAllPyraColors())]}, // 0-1, 1-2
+    {from: 3, to: 0, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeFaces()), () => scaleTo2x2(false)]}, // 2-1, 1-0
+    {from: 0, to: 2, ops: [() => morphToPyra(true), () => wrapInPromise(() => setAllPyraColors())]},
+    {from: 2, to: 0, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeFaces())]}
+  ];
+
+  return new Promise((resolve) => {
+    const ops: (() => Promise<void>)[] = [];
+    const orgState = (is2x2 ? 1 : 0) + (isPyraShape ? 2 : 0);
+    console.log("morphing from " + orgState + " to " + newState);
+    const path = paths.find((path) => path.from === orgState && path.to === newState);
+    path?.ops.forEach((op) => ops.push(op));
+    doInSequence(ops)
+    .then(() => {
+      const state: number = (is2x2 ? 1 : 0) + (isPyraShape ? 2 : 0);
+      console.log("Arrived at state "+state);
+    })
+    .then(() => resolve());
   });
 }
 
@@ -921,35 +1012,25 @@ function onKeyDown(event: KeyboardEvent): void {
       toggleRotationInfos();
       break;
     case "F2":
-      scaleTo2x2(false);
+      morphCombined(0);
       break;
     case "F3":
-      scaleTo2x2(true);
+      morphCombined(1);
       break;
     case "F4":
-      if (!isPyraShape) {
-        morphToPyra(0, 1);
-        isPyraShape= true;
-      }
+      morphCombined(3);
       break;
     case "F5":
-      if (isPyraShape) {
-        morphToPyra(1, 0);
-        isPyraShape = false;
-      }
+      morphCombined(2);
       break;
     case "F6":
-      isPyraColors = true;
+      isPyraColors = false;
       setAllCubeFaces();
       break;
       case "F7":
-        isPyraColors = false;
+        isPyraColors = true;
         setAllCubeFaces();
         break;
-      case "w":
-    case "W":
-        toggleWireframe();
-      break;
     case "F9":
       shuffle();
       break;
@@ -958,6 +1039,15 @@ function onKeyDown(event: KeyboardEvent): void {
       break;
     case "F12":
       window.ipcRenderer.send('open-dev-tools');
+      break;
+    case "1":
+      toggleShowOneCube();
+      break;
+    case "2":
+      addNormals();
+      break;
+    case "3":
+      removeNormals();
       break;
     case "q":
       window.ipcRenderer.send('app-quit');
@@ -974,16 +1064,10 @@ function onKeyDown(event: KeyboardEvent): void {
     case "H":
       isHideNext = true;
       break;
-    case "1":
-      toggleShowOneCube();
-      break;
-    case "2":
-      addNormals();
-      break;
-    case "3":
-      removeNormals();
-      break;
-      
+    case "w":
+      case "W":
+          toggleWireframe();
+        break;      
   
     case "l": // left
     case "L":
