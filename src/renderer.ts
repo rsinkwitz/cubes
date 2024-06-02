@@ -24,7 +24,7 @@ let renderer: THREE.WebGLRenderer;
 let baseGroup: THREE.Group;
 
 let animationPaused: boolean = true;
-let showNumbers: boolean = false;
+let isShowNumbers: boolean = false;
 let showAxes: boolean = false;
 let showRotationInfos: boolean = false;
 let isWireframe: boolean = false;
@@ -37,8 +37,9 @@ let isShowOneCube: boolean = false;
 let cubeSize: number = 0.98;
 let cubeStep: number = 1;
 
-enum ColorMasks {
-  Centers, // centers of all faces
+enum ColorMask {
+  All = 0, // all faces
+  Centers, // centers of all six cube faces
   WhiteEdges, // edges of white face
   FirstLayer, // first layer of white face
   FirstTwoLayers, // first two layers of white face
@@ -49,6 +50,8 @@ enum ColorMasks {
   TopThreeCornersLeft, // corners of the top layer front and left back
   TopThreeCornersRight, // corners of the top layer front and right back
 }
+
+let colorMaskOption = ColorMask.All;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
@@ -98,7 +101,7 @@ function init(): void {
 
   const ambientLight = new THREE.AmbientLight(0x333333);
   scene.add(ambientLight);
-  
+
   createDirLight(-5, 0, 2);
   createDirLight(5, 0, 2);
   createDirLight(0, -5, 2);
@@ -224,7 +227,7 @@ interface MorphModMap {
   [key: number]: MorphMod[];
 }
 
-// morph modifications for the cube indices which form the 2x2x2 cube to morph to a pyramorphix. 
+// morph modifications for the cube indices which form the 2x2x2 cube to morph to a pyramorphix.
 // The idx values are the corner points of the cube with idx = x+y*2+z*4. The vectors are the new values to apply to the points.
 const oneSixth = 1/6;
 const morphMods: MorphModMap = {};
@@ -254,7 +257,7 @@ morphMods[26] = [{idx: 6, x: 99, y: 0, z: 0}, {idx: 5, x: 0, y: 99, z: 0}, {idx:
 function calculateNormal(A: THREE.Vector3, B: THREE.Vector3, C: THREE.Vector3): THREE.Vector3 {
   const vector1 = new THREE.Vector3().subVectors(B, A);
   const vector2 = new THREE.Vector3().subVectors(C, A);
-  
+
   const normal = new THREE.Vector3().crossVectors(vector1, vector2);
   normal.normalize(); // Normalize the vector to get a unit normal vector
 
@@ -377,7 +380,7 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
         if (mod.z !== 99) {
           newPositions.setZ(clPosition*2, mod.z);
           newPositions.setZ(clPosition*2+1, mod.z);
-        }  
+        }
       });
     });
     geometry.morphAttributes.position = [newPositions];
@@ -390,7 +393,7 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
     }
     tempGeometry.computeVertexNormals();
     geometry.morphAttributes.normal = [tempGeometry.getAttribute('normal')];
-  } 
+  }
   return geometry;
 }
 
@@ -456,7 +459,7 @@ function removeNormals(): void {
 function setAllCubeFaces(): void {
  if (isWireframe) {
     setAllCubesWireframe();
-  } else if (showNumbers) {
+  } else if (isShowNumbers) {
     setAllCubesNumbered();
   } else if (isPyraColors) {
     setAllPyraColors();
@@ -467,25 +470,50 @@ function setAllCubeFaces(): void {
 
 function setAllCubesWireframe(): void {
   fixedPieces.forEach((piece) => {
-    getBox(piece).material = wireframeMaterial;      
+    getBox(piece).material = wireframeMaterial;
   });
 }
 
+// return structure for getMaskEnabled: if not listed, all faces are disabled, otherwise if all is true, all faces are enabled, otherwise only the faces listed are enabled
+interface MaskEnabled {
+  [key: number]: {all: boolean, faces?: number[]};
+}
+
+function getMaskEnabled(): MaskEnabled {
+  switch (colorMaskOption) {
+    case ColorMask.All:
+      return {999: {all: true}};
+    case ColorMask.Centers:
+      return {
+        4: {all: true}, 10: {all: true}, 12: {all: true}, 14: {all: true}, 16: {all: true}, 22: {all: true}
+      };
+      default: 
+      return {};
+  }
+}
+
 function setAllCubeColors(): void {
+  const maskEnabled: MaskEnabled = getMaskEnabled(); 
+  console.log("maskEnabled: " + maskEnabled);
   for (let z = -1; z <= 1; z++) {
     for (let y = -1; y <= 1; y++) {
       for (let x = -1; x <= 1; x++) {
         let index = (x+1) + (y+1)*3 + (z+1)*9;
         let piece = fixedPieces[index];
+        let enabled999 = maskEnabled[999];
+        let enabled = (typeof enabled999 !== 'undefined' ) ? enabled999 : maskEnabled[index];
+        console.log("index: " + index + " enabled: " + enabled);
 
         let materials: THREE.Material[] = [];
         for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
-        setCubeFaceColor(materials, x, 1, 0);
-        setCubeFaceColor(materials, y, 3, 2);
-        setCubeFaceColor(materials, z, 5, 4);
-        getBox(piece).material = materials;      
+        if (enabled && enabled.all) {
+          setCubeFaceColor(materials, x, 1, 0);
+          setCubeFaceColor(materials, y, 3, 2);
+          setCubeFaceColor(materials, z, 5, 4);
+        }
+        getBox(piece).material = materials;
       }
     }
   }
@@ -507,7 +535,7 @@ function setAllPyraColors(): void {
     initialMaterials.push(blackMaterial);
   }
   fixedPieces.forEach((piece) => {
-    getBox(piece).material = initialMaterials;      
+    getBox(piece).material = initialMaterials;
   });
   pyraFaces.forEach((pyraFaceObj) => {
     pyraFaceObj.pieces.forEach((pieceObj) => {
@@ -520,10 +548,10 @@ function setAllPyraColors(): void {
         pieceObj.faces.forEach((face) => {
           materials[face] = pyraFaceObj.material;
         });
-        box.material = materials;      
+        box.material = materials;
       }
     });
-  });  
+  });
 }
 
 function setAllCubesNumbered(): void {
@@ -533,7 +561,7 @@ function setAllCubesNumbered(): void {
     const context = canvas.getContext('2d');
     if (context) {
       context.fillStyle = 'lightblue';
-      context.fillRect(0, 0, canvas.width, canvas.height); 
+      context.fillRect(0, 0, canvas.width, canvas.height);
 
       context.font = '64px Arial';
       context.fillStyle = 'black';
@@ -725,6 +753,9 @@ function rotate(key: string): void {
 
   let piecesToRotate = rotateModel(key, forward, nums);
   rotateGraphics(piecesToRotate, axis, (key === key.toLowerCase()) ? degrees : -degrees)
+  if(isShowNumbers) {
+    setAllCubesNumbered();
+  }
 }
 
 function rotateGraphics(pieces: THREE.Group[], axis: string, degrees: number): void {
@@ -902,9 +933,9 @@ function createNormals(mesh: THREE.Mesh): THREE.Group {
         let p2 = new THREE.Vector3().fromBufferAttribute(pos2, i);
         let n2 = new THREE.Vector3().fromBufferAttribute(norm2, i);
         let arrow2 = new THREE.ArrowHelper(n2, p2, 0.5, 0x00ff00);
-        group.add(arrow2);  
+        group.add(arrow2);
       }
-    }  
+    }
   } else {
     let pos1 = mesh.geometry.attributes.position;
     let norm1 = mesh.geometry.attributes.normal;
@@ -912,8 +943,8 @@ function createNormals(mesh: THREE.Mesh): THREE.Group {
       let p1 = new THREE.Vector3().fromBufferAttribute(pos1, i);
       let n1 = new THREE.Vector3().fromBufferAttribute(norm1, i);
       let arrow = new THREE.ArrowHelper(n1, p1, 0.25, 0xff0000);
-      group.add(arrow);  
-    }  
+      group.add(arrow);
+    }
   }
   return group;
 }
@@ -978,7 +1009,7 @@ interface morphPath {
 
 // switch between 0=3x3, 1=2x2, 3=pyramorphix, 2=odd pyramorphix with 2x2 centers
 function morphCombined(newState: number): Promise<void> {
-  const paths: morphPath[] = [ 
+  const paths: morphPath[] = [
     {from: 0, to: 1, ops: [() => scaleTo2x2(true)]},
     {from: 1, to: 0, ops: [() => scaleTo2x2(false)]},
     {from: 1, to: 3, ops: [() => morphToPyra(true), () => wrapInPromise(() => setAllPyraColors())]},
@@ -1057,7 +1088,7 @@ function onKeyDown(event: KeyboardEvent): void {
       break;
     case "n":
     case "N":
-      showNumbers = !showNumbers;
+      isShowNumbers = !isShowNumbers;
       setAllCubeFaces();
       break;
     case "h":
@@ -1067,8 +1098,8 @@ function onKeyDown(event: KeyboardEvent): void {
     case "w":
       case "W":
           toggleWireframe();
-        break;      
-  
+        break;
+
     case "l": // left
     case "L":
     case "m": // middle
@@ -1103,19 +1134,33 @@ function onKeyDown(event: KeyboardEvent): void {
       }
       break;
 
-      case "ArrowUp":
+    case "ArrowUp":
       // cube.rotation.x += 0.1;
       // cube.updateMatrix();
-      testIndex = Math.min(testIndex + 1, 26);
-      isShowOneCube=false;
-      toggleShowOneCube();
+      // testIndex = Math.min(testIndex + 1, 26);
+      // isShowOneCube=false;
+      // toggleShowOneCube();
+      {
+        let numOptions = Object.keys(ColorMask).length;
+        testIndex = Math.min(testIndex + 1, numOptions - 1);
+        colorMaskOption = testIndex as ColorMask;
+        console.log("colorMaskOption: " + colorMaskOption);
+        setAllCubeColors();
+      }
       break;
     case "ArrowDown":
       // cube.rotation.x -= 0.1;
       // cube.updateMatrix();
-      testIndex = Math.max(testIndex - 1, 0);
-      isShowOneCube=false;
-      toggleShowOneCube();
+      // testIndex = Math.max(testIndex - 1, 0);
+      // isShowOneCube=false;
+      // toggleShowOneCube();
+      {
+        let numOptions = Object.keys(ColorMask).length;
+        testIndex = Math.max(testIndex - 1, 0);
+        colorMaskOption = testIndex as ColorMask;
+        console.log("colorMaskOption: " + colorMaskOption);
+        setAllCubeColors();
+      }
       break;
     case "ArrowLeft":
       baseGroup.rotation.y += 0.1;
