@@ -37,6 +37,15 @@ let isShowOneCube: boolean = false;
 let cubeSize: number = 0.98;
 let cubeStep: number = 1;
 
+let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
+
+let fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
+let rotPieces: THREE.Group[] = [];   // the list of pieces, changed by rotations
+let infoGroups: THREE.Group[] = [];
+
+let opsHistory: string[] = []; // the list of operations performed
+let opsTodo: string[] = []; // the list of operations to perform automatically
+
 enum ColorMask {
   All = 0, // all faces
   Centers, // centers of all six cube faces
@@ -53,14 +62,70 @@ enum ColorMask {
 
 let colorMaskOption = ColorMask.All;
 
-let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
+function getMaskEnabled(): MaskEnabled {
 
-let fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
-let rotPieces: THREE.Group[] = [];   // the list of pieces, changed by rotations
-let infoGroups: THREE.Group[] = [];
+  function getCenters(): MaskEnabled {
+    return { 4: { all: true }, 10: { all: true }, 12: { all: true }, 14: { all: true }, 16: { all: true }, 22: { all: true } };
+  }
 
-let opsHistory: string[] = []; // the list of operations performed
-let opsTodo: string[] = []; // the list of operations to perform automatically
+  function getLayers(numYLayers: number): MaskEnabled {
+    let res: MaskEnabled = {};
+    for (let z = -1; z <= 1; z++) {
+      for (let y = 2 - numYLayers; y <= 1; y++) {
+        for (let x = -1; x <= 1; x++) {
+          let index = (x + 1) + (y + 1) * 3 + (z + 1) * 9;
+          res[index] = { all: true };
+        }
+      }
+    }
+    return res;
+  }
+
+  function firstTwoLayers() {
+    return Object.assign(getCenters(), getLayers(2));
+  }
+
+  switch (colorMaskOption) {
+    case ColorMask.All: return { 999: { all: true } };
+
+    case ColorMask.Centers: return getCenters();
+
+    case ColorMask.WhiteEdges:
+      let corners = { 7: { all: true }, 15: { all: true }, 17: { all: true }, 25: { all: true } }
+      return Object.assign(getCenters(), corners);
+
+    case ColorMask.FirstLayer: return Object.assign(getCenters(), getLayers(1));
+
+    case ColorMask.FirstTwoLayers: return firstTwoLayers();
+
+    case ColorMask.TopCrossFaces:
+      let topCross: MaskEnabled = { 1: { faces: [3] }, 9: { faces: [3] }, 11: { faces: [3] }, 19: { faces: [3] } };
+      return Object.assign(firstTwoLayers(), topCross);
+      
+    case ColorMask.TopBarFaces:
+      let topBar: MaskEnabled = { 1: { faces: [3] }, 19: { faces: [3] } };
+      return Object.assign(firstTwoLayers(), topBar);
+
+    case ColorMask.TopEllFaces:
+      let topEll: MaskEnabled = { 1: { faces: [3] }, 9: { faces: [3] } };
+      return Object.assign(firstTwoLayers(), topEll);
+
+    case ColorMask.TopThreeEdges:
+      let top3: MaskEnabled = { 1: { all: true }, 11: { all: true }, 19: { all: true } };
+      return Object.assign(getLayers(2), top3);
+
+    case ColorMask.TopThreeCornersLeft:
+      let top3cl: MaskEnabled = { 0: { all: true }, 2: { all: true }, 20: { all: true } };
+      return Object.assign(getLayers(2), top3cl);
+
+    case ColorMask.TopThreeCornersRight:
+      let top3cr: MaskEnabled = { 2: { all: true }, 18: { all: true }, 20: { all: true } };
+      return Object.assign(getLayers(2), top3cr);
+
+    default:
+      return {};
+  }
+}
 
 const basicMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({color: 0xff0000}), // right  red     0
@@ -475,21 +540,12 @@ function setAllCubesWireframe(): void {
 }
 
 // return structure for getMaskEnabled: if not listed, all faces are disabled, otherwise if all is true, all faces are enabled, otherwise only the faces listed are enabled
-interface MaskEnabled {
-  [key: number]: {all: boolean, faces?: number[]};
+interface MaskEnabledValue {
+  all?: boolean, faces?: number[];
 }
 
-function getMaskEnabled(): MaskEnabled {
-  switch (colorMaskOption) {
-    case ColorMask.All:
-      return {999: {all: true}};
-    case ColorMask.Centers:
-      return {
-        4: {all: true}, 10: {all: true}, 12: {all: true}, 14: {all: true}, 16: {all: true}, 22: {all: true}
-      };
-      default: 
-      return {};
-  }
+interface MaskEnabled {
+  [key: number]: MaskEnabledValue;
 }
 
 function setAllCubeColors(): void {
@@ -508,10 +564,10 @@ function setAllCubeColors(): void {
         for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
-        if (enabled && enabled.all) {
-          setCubeFaceColor(materials, x, 1, 0);
-          setCubeFaceColor(materials, y, 3, 2);
-          setCubeFaceColor(materials, z, 5, 4);
+        if (enabled) {
+          setCubeFaceColor(materials, x, 1, 0, enabled);
+          setCubeFaceColor(materials, y, 3, 2, enabled);
+          setCubeFaceColor(materials, z, 5, 4, enabled);
         }
         getBox(piece).material = materials;
       }
@@ -519,11 +575,13 @@ function setAllCubeColors(): void {
   }
 }
 
-function setCubeFaceColor(materials: THREE.Material[], index: number, i1: number, i2: number): void {
-  if (index === -1) {
+function setCubeFaceColor(materials: THREE.Material[], index: number, i1: number, i2: number, enabled: MaskEnabledValue): void {
+  let enabled1 = enabled.all || enabled.faces?.includes(i1);
+  let enabled2 = enabled.all || enabled.faces?.includes(i2);
+  if (index === -1 && enabled1) {
     materials[i1*2] = basicMaterials[i1];
     materials[i1*2+1] = basicMaterials[i1];
-  } else if (index === 1) {
+  } else if (index === 1 && enabled2) {
     materials[i2*2] = basicMaterials[i2];
     materials[i2*2+1] = basicMaterials[i2];
   }
@@ -555,7 +613,7 @@ function setAllPyraColors(): void {
 }
 
 function setAllCubesNumbered(): void {
-  rotPieces.forEach((piece, index) => {
+  fixedPieces.forEach((piece, index) => {
     // Create a canvas and draw the index number on it
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
