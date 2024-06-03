@@ -49,8 +49,9 @@ let opsTodo: string[] = []; // the list of operations to perform automatically
 enum ColorMask {
   All = 0, // all faces
   Centers, // centers of all six cube faces
-  WhiteEdges, // edges of white face
-  FirstLayer, // first layer of white face
+  TopEdges, // edges of top face
+  TopLayer, // top layer
+  BottomEdges, // edges of bottom face
   FirstTwoLayers, // first two layers of white face
   TopCrossFaces, // faces of the top layer cross
   TopBarFaces, // faces of the top layer left to right
@@ -68,10 +69,10 @@ function getMaskEnabled(): MaskEnabled {
     return { 4: { all: true }, 10: { all: true }, 12: { all: true }, 14: { all: true }, 16: { all: true }, 22: { all: true } };
   }
 
-  function getLayers(numYLayers: number): MaskEnabled {
+  function getLayers(ylayerFrom: number, yLayerTo: number): MaskEnabled {
     let res: MaskEnabled = {};
     for (let z = -1; z <= 1; z++) {
-      for (let y = 2 - numYLayers; y <= 1; y++) {
+      for (let y = ylayerFrom; y <= yLayerTo; y++) {
         for (let x = -1; x <= 1; x++) {
           let index = (x + 1) + (y + 1) * 3 + (z + 1) * 9;
           res[index] = { all: true };
@@ -82,7 +83,7 @@ function getMaskEnabled(): MaskEnabled {
   }
 
   function firstTwoLayers() {
-    return Object.assign(getCenters(), getLayers(2));
+    return Object.assign(getCenters(), getLayers(-1, 0));
   }
 
   switch (colorMaskOption) {
@@ -90,37 +91,41 @@ function getMaskEnabled(): MaskEnabled {
 
     case ColorMask.Centers: return getCenters();
 
-    case ColorMask.WhiteEdges:
+    case ColorMask.TopEdges:
       let corners = { 7: { all: true }, 15: { all: true }, 17: { all: true }, 25: { all: true } }
       return Object.assign(getCenters(), corners);
 
-    case ColorMask.FirstLayer: return Object.assign(getCenters(), getLayers(1));
+    case ColorMask.TopLayer: return Object.assign(getCenters(), getLayers(1, 1));
 
+    case ColorMask.BottomEdges:
+      let corners2 = { 1: { all: true }, 9: { all: true }, 11: { all: true }, 19: { all: true } }
+      return Object.assign(getCenters(), corners2);
+  
     case ColorMask.FirstTwoLayers: return firstTwoLayers();
 
     case ColorMask.TopCrossFaces:
-      let topCross: MaskEnabled = { 1: { faces: [3] }, 9: { faces: [3] }, 11: { faces: [3] }, 19: { faces: [3] } };
+      let topCross: MaskEnabled = { 7: { faces: [3] }, 15: { faces: [3] }, 17: { faces: [3] }, 25: { faces: [3] } };
       return Object.assign(firstTwoLayers(), topCross);
-      
+
     case ColorMask.TopBarFaces:
-      let topBar: MaskEnabled = { 1: { faces: [3] }, 19: { faces: [3] } };
+      let topBar: MaskEnabled = { 15: { faces: [3] }, 17: { faces: [3] } };
       return Object.assign(firstTwoLayers(), topBar);
 
     case ColorMask.TopEllFaces:
-      let topEll: MaskEnabled = { 1: { faces: [3] }, 9: { faces: [3] } };
+      let topEll: MaskEnabled = { 15: { faces: [3] }, 7: { faces: [3] } };
       return Object.assign(firstTwoLayers(), topEll);
 
     case ColorMask.TopThreeEdges:
-      let top3: MaskEnabled = { 1: { all: true }, 11: { all: true }, 19: { all: true } };
-      return Object.assign(getLayers(2), top3);
+      let top3: MaskEnabled = { 15: { all: true }, 17: { all: true }, 25: { all: true } };
+      return Object.assign(firstTwoLayers(), top3);
 
     case ColorMask.TopThreeCornersLeft:
-      let top3cl: MaskEnabled = { 0: { all: true }, 2: { all: true }, 20: { all: true } };
-      return Object.assign(getLayers(2), top3cl);
+      let top3cl: MaskEnabled = { 6: { all: true }, 24: { all: true }, 26: { all: true } };
+      return Object.assign(firstTwoLayers(), top3cl);
 
     case ColorMask.TopThreeCornersRight:
-      let top3cr: MaskEnabled = { 2: { all: true }, 18: { all: true }, 20: { all: true } };
-      return Object.assign(getLayers(2), top3cr);
+      let top3cr: MaskEnabled = { 24: { all: true }, 26: { all: true }, 8: { all: true } };
+      return Object.assign(firstTwoLayers(), top3cr);
 
     default:
       return {};
@@ -142,7 +147,7 @@ const wireframeMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMate
 function init(): void {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(
-    60,
+    50,
     window.innerWidth / window.innerHeight,
     0.1,
     1000
@@ -173,7 +178,7 @@ function init(): void {
   createDirLight(0, 5, 2);
   createDirLight(0, 0, -2);
 
-  camera.position.set(4, 4, 8);
+  camera.position.set(4, 4, 6);
   controls.update();
   controls.saveState();
 
@@ -550,14 +555,19 @@ interface MaskEnabled {
 
 function setAllCubeColors(): void {
   const maskEnabled: MaskEnabled = getMaskEnabled(); 
-  console.log("maskEnabled: " + maskEnabled);
+  rotPieces.forEach((piece, index) => {
+    let enabled999 = maskEnabled[999];
+    let enabled = (typeof enabled999 !== 'undefined' ) ? enabled999 : maskEnabled[index];
+    getBox(piece).userData = { enabled: enabled };
+  });
+
   for (let z = -1; z <= 1; z++) {
     for (let y = -1; y <= 1; y++) {
       for (let x = -1; x <= 1; x++) {
         let index = (x+1) + (y+1)*3 + (z+1)*9;
         let piece = fixedPieces[index];
-        let enabled999 = maskEnabled[999];
-        let enabled = (typeof enabled999 !== 'undefined' ) ? enabled999 : maskEnabled[index];
+        let box = getBox(piece);
+        let enabled = box.userData.enabled;
         console.log("index: " + index + " enabled: " + enabled);
 
         let materials: THREE.Material[] = [];
@@ -569,7 +579,7 @@ function setAllCubeColors(): void {
           setCubeFaceColor(materials, y, 3, 2, enabled);
           setCubeFaceColor(materials, z, 5, 4, enabled);
         }
-        getBox(piece).material = materials;
+        box.material = materials;
       }
     }
   }
@@ -613,7 +623,7 @@ function setAllPyraColors(): void {
 }
 
 function setAllCubesNumbered(): void {
-  fixedPieces.forEach((piece, index) => {
+  rotPieces.forEach((piece, index) => {
     // Create a canvas and draw the index number on it
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -983,7 +993,7 @@ function createNormals(mesh: THREE.Mesh): THREE.Group {
   const group = new THREE.Group();
   group.name = "normals";
 
-  if (!isPyraShape) {
+  if (isPyraShape) {
     if (typeof mesh.geometry.morphAttributes.position !== "undefined") {
       let pos2 = mesh.geometry.morphAttributes.position[0];
       let norm2 = mesh.geometry.morphAttributes.normal[0];
@@ -1260,8 +1270,11 @@ function onKeyDown(event: KeyboardEvent): void {
 
 document.addEventListener("keydown", onKeyDown);
 
+let shiftKeyDown = false;
+
 document.addEventListener('keydown', function(event) {
-  if (event.shiftKey) {
+  if (event.shiftKey && !shiftKeyDown) {
+    shiftKeyDown = true;
     if (showRotationInfos) {
       createRotationInfos(true, true);
     }
@@ -1270,6 +1283,7 @@ document.addEventListener('keydown', function(event) {
 
 document.addEventListener('keyup', function(event) {
   if (event.key === 'Shift') {
+    shiftKeyDown = false;
     if (showRotationInfos) {
       createRotationInfos(true, false);
     }
