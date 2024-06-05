@@ -39,12 +39,12 @@ let cubeStep: number = 1;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
-let fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
-let rotPieces: THREE.Group[] = [];   // the list of pieces, changed by rotations
-let infoGroups: THREE.Group[] = [];
+const fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
+const rotPieces: THREE.Group[] = [];   // the list of pieces, changed by rotations
+const infoGroups: THREE.Group[] = [];
 
-let opsHistory: string[] = []; // the list of operations performed
-let opsTodo: string[] = []; // the list of operations to perform automatically
+const opsHistory: string[] = []; // the list of operations performed
+const opsTodo: string[] = []; // the list of operations to perform automatically
 
 enum ColorMask {
   All = 0, // all faces
@@ -70,7 +70,7 @@ function getMaskEnabled(): MaskEnabled {
   }
 
   function getLayers(ylayerFrom: number, yLayerTo: number): MaskEnabled {
-    let res: MaskEnabled = {};
+    const res: MaskEnabled = {};
     for (let z = -1; z <= 1; z++) {
       for (let y = ylayerFrom; y <= yLayerTo; y++) {
         for (let x = -1; x <= 1; x++) {
@@ -92,39 +92,39 @@ function getMaskEnabled(): MaskEnabled {
     case ColorMask.Centers: return getCenters();
 
     case ColorMask.TopEdges:
-      let corners = { 7: { all: true }, 15: { all: true }, 17: { all: true }, 25: { all: true } }
+      const corners = { 7: { all: true }, 15: { all: true }, 17: { all: true }, 25: { all: true } }
       return Object.assign(getCenters(), corners);
 
     case ColorMask.TopLayer: return Object.assign(getCenters(), getLayers(1, 1));
 
     case ColorMask.BottomEdges:
-      let corners2 = { 1: { all: true }, 9: { all: true }, 11: { all: true }, 19: { all: true } }
+      const corners2 = { 1: { all: true }, 9: { all: true }, 11: { all: true }, 19: { all: true } }
       return Object.assign(getCenters(), corners2);
   
     case ColorMask.FirstTwoLayers: return firstTwoLayers();
 
     case ColorMask.TopCrossFaces:
-      let topCross: MaskEnabled = { 7: { faces: [3] }, 15: { faces: [3] }, 17: { faces: [3] }, 25: { faces: [3] } };
+      const topCross: MaskEnabled = { 7: { faces: [3] }, 15: { faces: [3] }, 17: { faces: [3] }, 25: { faces: [3] } };
       return Object.assign(firstTwoLayers(), topCross);
 
     case ColorMask.TopBarFaces:
-      let topBar: MaskEnabled = { 15: { faces: [3] }, 17: { faces: [3] } };
+      const topBar: MaskEnabled = { 15: { faces: [3] }, 17: { faces: [3] } };
       return Object.assign(firstTwoLayers(), topBar);
 
     case ColorMask.TopEllFaces:
-      let topEll: MaskEnabled = { 15: { faces: [3] }, 7: { faces: [3] } };
+      const topEll: MaskEnabled = { 15: { faces: [3] }, 7: { faces: [3] } };
       return Object.assign(firstTwoLayers(), topEll);
 
     case ColorMask.TopThreeEdges:
-      let top3: MaskEnabled = { 15: { all: true }, 17: { all: true }, 25: { all: true } };
+      const top3: MaskEnabled = { 15: { all: true }, 17: { all: true }, 25: { all: true } };
       return Object.assign(firstTwoLayers(), top3);
 
     case ColorMask.TopThreeCornersLeft:
-      let top3cl: MaskEnabled = { 6: { all: true }, 24: { all: true }, 26: { all: true } };
+      const top3cl: MaskEnabled = { 6: { all: true }, 24: { all: true }, 26: { all: true } };
       return Object.assign(firstTwoLayers(), top3cl);
 
     case ColorMask.TopThreeCornersRight:
-      let top3cr: MaskEnabled = { 24: { all: true }, 26: { all: true }, 8: { all: true } };
+      const top3cr: MaskEnabled = { 24: { all: true }, 26: { all: true }, 8: { all: true } };
       return Object.assign(firstTwoLayers(), top3cr);
 
     default:
@@ -201,8 +201,8 @@ function createMain() {
 function createBeveledCube(): void {
   // Create a square shape with a beveled edge
   const bevel = 0.05;
-  let ih = 0.5 - bevel; // inner half of the side
-  let oh = 0.5; // outer half of the side
+  const ih = 0.5 - bevel; // inner half of the side
+  const oh = 0.5; // outer half of the side
   const shape = new THREE.Shape();
   shape.moveTo(-ih, -oh);
   shape.lineTo(ih, -oh);
@@ -226,7 +226,7 @@ function createBeveledCube(): void {
 
   const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true });
-  let cube = new THREE.Mesh(geometry, material);
+  const cube = new THREE.Mesh(geometry, material);
   cube.position.set(3, 0, 0);
   scene.add(cube);
 }
@@ -345,7 +345,7 @@ interface PyraFace {
 }
 
 // face index on cube: red     0, orange  2, white   4, yellow  6, green   8, blue    10
-let pyraFaces: PyraFace[] = [
+const pyraFaces: PyraFace[] = [
   {material: basicMaterials[0],  // red
   pieces: [
     {piece: 6, faces: [2, 5]},
@@ -432,7 +432,7 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
 
   const geometry: BoxGeometryEnh = new BoxGeometryEnh(cubeSize, cubeSize, cubeSize, 1, 1, 1, diagFocus, true);
   const orgPositions = geometry.attributes.position;
-  let newPositions = orgPositions.clone();
+  const newPositions = orgPositions.clone();
 
   // apply morph modifications for the cube indices which form the 2x2x2 cube to morph to a pyramorphix
   if (typeof morphMods[cubeIndex] !== 'undefined') {
@@ -468,10 +468,10 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
 }
 
 function createSingleCube(x: number, y: number, z: number): THREE.Group {
-  let geometry: BoxGeometryEnh| null = createGeometry((x+1) + (y+1) * 3 + (z+1) * 9);
-  let box = new THREE.Mesh(geometry, blackMaterial);
+  const geometry: BoxGeometryEnh| null = createGeometry((x+1) + (y+1) * 3 + (z+1) * 9);
+  const box = new THREE.Mesh(geometry, blackMaterial);
   box.name = "box";
-  let group = new THREE.Group();
+  const group = new THREE.Group();
   group.matrixAutoUpdate = false;
   group.add(box);
   group.position.set(x * cubeStep, y * cubeStep, z * cubeStep);
@@ -481,7 +481,7 @@ function createSingleCube(x: number, y: number, z: number): THREE.Group {
 }
 
 function getBox(piece: THREE.Group): THREE.Mesh {
-  let box = piece.children.filter((child) => { return child.name === "box"; })[0];
+  const box = piece.children.filter((child) => { return child.name === "box"; })[0];
   return box !== null ? box as THREE.Mesh : new THREE.Mesh();
 }
 
@@ -493,7 +493,7 @@ function createAllCubes(): void {
   for (let z = -1; z <= 1; z++) {
     for (let y = -1; y <= 1; y++) {
       for (let x = -1; x <= 1; x++) {
-        let piece = createSingleCube(x, y, z);
+        const piece = createSingleCube(x, y, z);
         rotPieces.push(piece);
         fixedPieces.push(piece);
         piece.visible = isShowOneCube ? (index === 26) : true;
@@ -506,7 +506,7 @@ function createAllCubes(): void {
 
 function addNormals(): void {
   fixedPieces.forEach((piece) => {
-    let vnh = createNormals(getBox(piece));
+    const vnh = createNormals(getBox(piece));
     piece.add(vnh);
   });
 }
@@ -556,21 +556,21 @@ interface MaskEnabled {
 function setAllCubeColors(): void {
   const maskEnabled: MaskEnabled = getMaskEnabled(); 
   rotPieces.forEach((piece, index) => {
-    let enabled999 = maskEnabled[999];
-    let enabled = (typeof enabled999 !== 'undefined' ) ? enabled999 : maskEnabled[index];
+    const enabled999 = maskEnabled[999];
+    const enabled = (typeof enabled999 !== 'undefined' ) ? enabled999 : maskEnabled[index];
     getBox(piece).userData = { enabled: enabled };
   });
 
   for (let z = -1; z <= 1; z++) {
     for (let y = -1; y <= 1; y++) {
       for (let x = -1; x <= 1; x++) {
-        let index = (x+1) + (y+1)*3 + (z+1)*9;
-        let piece = fixedPieces[index];
-        let box = getBox(piece);
-        let enabled = box.userData.enabled;
+        const index = (x+1) + (y+1)*3 + (z+1)*9;
+        const piece = fixedPieces[index];
+        const box = getBox(piece);
+        const enabled = box.userData.enabled;
         console.log("index: " + index + " enabled: " + enabled);
 
-        let materials: THREE.Material[] = [];
+        const materials: THREE.Material[] = [];
         for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
@@ -586,8 +586,8 @@ function setAllCubeColors(): void {
 }
 
 function setCubeFaceColor(materials: THREE.Material[], index: number, i1: number, i2: number, enabled: MaskEnabledValue): void {
-  let enabled1 = enabled.all || enabled.faces?.includes(i1);
-  let enabled2 = enabled.all || enabled.faces?.includes(i2);
+  const enabled1 = enabled.all || enabled.faces?.includes(i1);
+  const enabled2 = enabled.all || enabled.faces?.includes(i2);
   if (index === -1 && enabled1) {
     materials[i1*2] = basicMaterials[i1];
     materials[i1*2+1] = basicMaterials[i1];
@@ -598,7 +598,7 @@ function setCubeFaceColor(materials: THREE.Material[], index: number, i1: number
 }
 
 function setAllPyraColors(): void {
-  let initialMaterials: THREE.Material[] = [];
+  const initialMaterials: THREE.Material[] = [];
   for (let i = 0; i < 12; i++) {
     initialMaterials.push(blackMaterial);
   }
@@ -607,9 +607,9 @@ function setAllPyraColors(): void {
   });
   pyraFaces.forEach((pyraFaceObj) => {
     pyraFaceObj.pieces.forEach((pieceObj) => {
-      let box = getBox(fixedPieces[pieceObj.piece]);
+      const box = getBox(fixedPieces[pieceObj.piece]);
       if (box.material instanceof Array) {
-        let materials = box.material.slice();
+        const materials = box.material.slice();
         for (let i = 0; i < 12; i++) {
           materials.push(blackMaterial);
         }
@@ -639,13 +639,13 @@ function setAllCubesNumbered(): void {
     const texture = new THREE.Texture(canvas);
     texture.needsUpdate = true;
     const mat = new THREE.MeshStandardMaterial({map: texture});
-    let box = getBox(piece);
+    const box = getBox(piece);
     box.material = mat;
   });
 }
 
 function createRotationInfoGroup(font: Font, key: string, inverse: boolean, x: number, y: number, z: number, rotDegrees: number, rotAxis: THREE.Vector3): void {
-  let group: THREE.Group = new THREE.Group();
+  const group: THREE.Group = new THREE.Group();
   group.add(createOneRotationLetter(font, key, inverse, x, y, z, rotDegrees, rotAxis));
   group.add(createRotationArrow(inverse));
   group.scale.set(0.5, 0.5, 0.5);
@@ -656,34 +656,34 @@ function createRotationInfoGroup(font: Font, key: string, inverse: boolean, x: n
 }
 
 function createOneRotationLetter(font: Font, key: string, inverse: boolean, x: number, y: number, z: number, rotDegrees: number, rotAxis: THREE.Vector3): THREE.Mesh {
-    let geometry = new TextGeometry(key + (inverse ? "'" : ""), {
+    const geometry = new TextGeometry(key + (inverse ? "'" : ""), {
       font: font, size: 1, depth: 0.1,
     //     curveSegments: 12, bevelEnabled: true, bevelThickness: 10, bevelSize: 8, bevelOffset: 0, bevelSegments: 5
     });
     geometry.center();
-    let material = new THREE.MeshStandardMaterial({color: 0x1f1fff, transparent: true, opacity: 0.8 });
+    const material = new THREE.MeshStandardMaterial({color: 0x1f1fff, transparent: true, opacity: 0.8 });
     const mesh = new THREE.Mesh(geometry, material);
     return mesh;
 }
 
 function createRotationArrow(inverse: boolean): THREE.Mesh {
-  let endAngle = 90 * Math.PI / 180;
-  let outerRadius = 1;
-  let thickness = 0.1;
-  let arrowHeadSize = 0.2;
-  let shape = new THREE.Shape();
+  const endAngle = 90 * Math.PI / 180;
+  const outerRadius = 1;
+  const thickness = 0.1;
+  const arrowHeadSize = 0.2;
+  const shape = new THREE.Shape();
   shape.absarc(0, 0, outerRadius, 0, endAngle, false);
   shape.absarc(0, 0, outerRadius - thickness, endAngle, 0, true);
   shape.lineTo(outerRadius - arrowHeadSize - thickness / 2, 0);
   shape.lineTo(outerRadius - thickness / 2, -arrowHeadSize);
   shape.lineTo(outerRadius + arrowHeadSize - thickness /2, 0);
 
-  let extrudeSettings = {
+  const extrudeSettings = {
     steps: 1, depth: thickness, bevelEnabled: false, bevelThickness: 0.2, bevelSize: 0.2, bevelOffset: 0, bevelSegments: 1
   };
-  let geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  let material = new THREE.MeshStandardMaterial({color: 0x1f1fff, transparent: true, opacity: 0.8, wireframe: false});
-  let mesh = new THREE.Mesh(geometry, material);
+  const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  const material = new THREE.MeshStandardMaterial({color: 0x1f1fff, transparent: true, opacity: 0.8, wireframe: false});
+  const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.z = 45 * Math.PI / 180;
   if (inverse) {
     mesh.rotation.y = 180 * Math.PI / 180;
@@ -739,7 +739,7 @@ function animate(): void {
 }
 
 function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
-  let angle = degrees * Math.PI / 180;
+  const angle = degrees * Math.PI / 180;
   switch (axis) {
     case "x":
       return new THREE.Matrix4().makeRotationX(angle);
@@ -776,7 +776,7 @@ function getRotationData(key: string): rotationDataEntry {
   // The rotation operations are defined by the axis of rotation, the degrees of rotation, the direction of rotation,
   // and the list of piece indices of the slice to rotate. The piece indices are defined in clockwise order when
   // looking at the face of the cube from outside.
-  let data: rotationDataMap = {
+  const data: rotationDataMap = {
     "l": {axis: "x", degrees:  90, forward: true,  nums: [0, 9, 18, 21, 24, 15, 6, 3, 12]},
     "m": {axis: "x", degrees:  90, forward: false, nums: [1, 4, 7, 16, 25, 22, 19, 10, 13]},
     "r": {axis: "x", degrees: -90, forward: true,  nums: [26, 23, 20, 11, 2, 5, 8, 17, 14]},
@@ -799,7 +799,7 @@ function undoOperation(): void {
   }
   let key = opsHistory.pop();
   if (key) {
-    let undoKey = (key === key.toLowerCase()) ? key.toUpperCase() : key.toLowerCase();
+    const undoKey = (key === key.toLowerCase()) ? key.toUpperCase() : key.toLowerCase();
     rotate(undoKey);
     key = opsHistory.pop(); // do not log the undo uperation
   }
@@ -809,7 +809,7 @@ function rotate(key: string): void {
   if (numAnims > 0) {
     return; // no rotation while an animation is running
   }
-  let {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
+  const {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
 
   if (isHideNext) {
     toggleHideObjects(nums.map((index) => rotPieces[index])); // toggle hide state instead
@@ -819,7 +819,7 @@ function rotate(key: string): void {
 
   opsHistory.push(key);
 
-  let piecesToRotate = rotateModel(key, forward, nums);
+  const piecesToRotate = rotateModel(key, forward, nums);
   rotateGraphics(piecesToRotate, axis, (key === key.toLowerCase()) ? degrees : -degrees)
   if(isShowNumbers) {
     setAllCubesNumbered();
@@ -832,7 +832,7 @@ function rotateGraphics(pieces: THREE.Group[], axis: string, degrees: number): v
     const startMatrix = piece.matrixWorld.clone();
     const animObj = {lerpFactor: 0};
 
-    let tl = gsap.timeline();
+    const tl = gsap.timeline();
     numAnims++;
     tl.to(animObj, {
       lerpFactor: 1, duration: 0.5, ease: "linear",
@@ -844,7 +844,7 @@ function rotateGraphics(pieces: THREE.Group[], axis: string, degrees: number): v
       onComplete: () => {
         numAnims--;
         if(numAnims === 0 && opsTodo.length > 0) {
-          let op = opsTodo.pop();
+          const op = opsTodo.pop();
           if (op !== undefined) {
             sleep(50).then(() => rotate(op));
 
@@ -861,8 +861,8 @@ function sleep(ms: number): Promise<void> {
 
 function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Group[] {
   // rotate the cube model. It must follow the rotation so that slices can properly be selected after each rotation
-  let keyLc = key === key.toLowerCase();
-  let piecesToRotate: THREE.Group[] = []; // the pieces to rotate
+  const keyLc = key === key.toLowerCase();
+  const piecesToRotate: THREE.Group[] = []; // the pieces to rotate
   switch (key.toLowerCase()) {
     case "x":
       piecesToRotate = rotPieces;
@@ -890,23 +890,23 @@ function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Group
 }
 
 function rotateModelSliceByKey(key: string, keyLc: boolean): void {
-  let {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
+  const {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
   rotateModelSlice(nums, keyLc === forward);
 }
 
 function rotateModelSlice(nums: number[], rightRotate: boolean): void {
   // reflect the turn in the pieces list
   if (rightRotate) {
-    let tempA = rotPieces[nums[0]];
-    let tempB = rotPieces[nums[1]];
+    const tempA = rotPieces[nums[0]];
+    const tempB = rotPieces[nums[1]];
     for (let i = 0; i <= 5; i++) {
       rotPieces[nums[i]] = rotPieces[nums[i + 2]];
     }
     rotPieces[nums[6]] = tempA;
     rotPieces[nums[7]] = tempB;
   } else {
-    let tempA = rotPieces[nums[7]];
-    let tempB = rotPieces[nums[6]];
+    const tempA = rotPieces[nums[7]];
+    const tempB = rotPieces[nums[6]];
     for (let i = 5; i >= 0; i--) {
       rotPieces[nums[i + 2]] = rotPieces[nums[i]];
     }
@@ -916,7 +916,7 @@ function rotateModelSlice(nums: number[], rightRotate: boolean): void {
 }
 
 function shuffle(): void {
-  let moves = is2x2 ? ["l", "r", "u", "d", "b", "f"]
+  const moves = is2x2 ? ["l", "r", "u", "d", "b", "f"]
     : ["l", "m", "r", "u", "e", "d", "b", "s", "f"];
   for (let i = 0; i < 20; i++) {
     let index = Math.floor(Math.random() * moves.length * 2);
@@ -926,7 +926,7 @@ function shuffle(): void {
     }
     opsTodo.push(moves[index]);
   }
-  let op = opsTodo.pop();
+  const op = opsTodo.pop();
   if (op !== undefined) {
     rotate(op);
   }
@@ -938,25 +938,25 @@ function scaleTo2x2(forward: boolean): Promise<void> {
     return new Promise((resolve, reject) => {resolve();});
   }
   return new Promise((resolve) => {
-    let centerIndexes = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
-    let centerPieces = centerIndexes.map((index) => fixedPieces[index]);
-    let centerStartMatrices = centerPieces.map((piece) => piece.matrixWorld.clone());
+    const centerIndexes = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
+    const centerPieces = centerIndexes.map((index) => fixedPieces[index]);
+    const centerStartMatrices = centerPieces.map((piece) => piece.matrixWorld.clone());
 
-    let cornerIndexes = [0,2,6,8,18,20,24,26]; // the corner pieces
-    let cornerPieces = cornerIndexes.map((index) => fixedPieces[index]);
-    let cornerStartMatrices = cornerPieces.map((piece) => piece.matrixWorld.clone());
+    const cornerIndexes = [0,2,6,8,18,20,24,26]; // the corner pieces
+    const cornerPieces = cornerIndexes.map((index) => fixedPieces[index]);
+    const cornerStartMatrices = cornerPieces.map((piece) => piece.matrixWorld.clone());
 
     if (!forward) {
        centerPieces.forEach((piece) => { piece.visible = true; });
     }
 
-    let lerpCenterScale = forward ? 0.8 : 1/0.8;
-    let lerpCornerScale = forward ? 1.5 : 1/1.5;
-    let lerpCornerTranslation = forward ? -0.5 : 0.75;
+    const lerpCenterScale = forward ? 0.8 : 1/0.8;
+    const lerpCornerScale = forward ? 1.5 : 1/1.5;
+    const lerpCornerTranslation = forward ? -0.5 : 0.75;
 
     const animObj = {lerpCenterScale: 1, lerpCornerScale: 1, lerpCornerTranslation: 0};
 
-    let tl = gsap.timeline();
+    const tl = gsap.timeline();
     numAnims++;
     tl.to(animObj, {
       lerpCenterScale: lerpCenterScale, lerpCornerScale: lerpCornerScale, lerpCornerTranslation: lerpCornerTranslation,  duration:0.5, ease: "linear",
@@ -971,7 +971,7 @@ function scaleTo2x2(forward: boolean): Promise<void> {
         // Scale and move the corner pieces
         cornerPieces.forEach((piece, index) => {
           piece.matrix.copy(cornerStartMatrices[index]); // Reset the matrix to the start matrix (undo previous transforms)
-          let translationVector = piece.position.clone().normalize().multiplyScalar(animObj.lerpCornerTranslation * Math.sqrt(3));
+          const translationVector = piece.position.clone().normalize().multiplyScalar(animObj.lerpCornerTranslation * Math.sqrt(3));
           piece.applyMatrix4(new THREE.Matrix4().makeScale(animObj.lerpCornerScale, animObj.lerpCornerScale, animObj.lerpCornerScale)
             .multiply(new THREE.Matrix4().makeTranslation(translationVector.x, translationVector.y, translationVector.z)));
           piece.matrixWorldNeedsUpdate = true;
@@ -995,22 +995,22 @@ function createNormals(mesh: THREE.Mesh): THREE.Group {
 
   if (isPyraShape) {
     if (typeof mesh.geometry.morphAttributes.position !== "undefined") {
-      let pos2 = mesh.geometry.morphAttributes.position[0];
-      let norm2 = mesh.geometry.morphAttributes.normal[0];
+      const pos2 = mesh.geometry.morphAttributes.position[0];
+      const norm2 = mesh.geometry.morphAttributes.normal[0];
       for (let i = 0; i < pos2.count; i++) {
-        let p2 = new THREE.Vector3().fromBufferAttribute(pos2, i);
-        let n2 = new THREE.Vector3().fromBufferAttribute(norm2, i);
-        let arrow2 = new THREE.ArrowHelper(n2, p2, 0.5, 0x00ff00);
+        const p2 = new THREE.Vector3().fromBufferAttribute(pos2, i);
+        const n2 = new THREE.Vector3().fromBufferAttribute(norm2, i);
+        const arrow2 = new THREE.ArrowHelper(n2, p2, 0.5, 0x00ff00);
         group.add(arrow2);
       }
     }
   } else {
-    let pos1 = mesh.geometry.attributes.position;
-    let norm1 = mesh.geometry.attributes.normal;
+    const pos1 = mesh.geometry.attributes.position;
+    const norm1 = mesh.geometry.attributes.normal;
     for (let i = 0; i < pos1.count; i++) {
-      let p1 = new THREE.Vector3().fromBufferAttribute(pos1, i);
-      let n1 = new THREE.Vector3().fromBufferAttribute(norm1, i);
-      let arrow = new THREE.ArrowHelper(n1, p1, 0.25, 0xff0000);
+      const p1 = new THREE.Vector3().fromBufferAttribute(pos1, i);
+      const n1 = new THREE.Vector3().fromBufferAttribute(norm1, i);
+      const arrow = new THREE.ArrowHelper(n1, p1, 0.25, 0xff0000);
       group.add(arrow);
     }
   }
@@ -1024,12 +1024,12 @@ function morphToPyra(forward: boolean): Promise<void> {
   }
   return new Promise((resolve) => {
     const animObj = { lerpFactor: forward ? 0.0 : 1.0 };
-    let tl = gsap.timeline();
+    const tl = gsap.timeline();
     tl.to(animObj, {
       lerpFactor: forward ? 1.0 : 0.0, duration: 1, ease: "linear",
       onUpdate: () => {
         fixedPieces.forEach((piece) => {
-          let box = getBox(piece);
+          const box = getBox(piece);
           if (typeof box.morphTargetInfluences !== 'undefined') {
             box.morphTargetInfluences[0] = animObj.lerpFactor;
           }
@@ -1046,7 +1046,7 @@ function morphToPyra(forward: boolean): Promise<void> {
 function doInSequence(ops: (() => Promise<void>)[]): Promise<void> {
   return new Promise((resolve) => {
     let i = 0;
-    let doNext = () => {
+    const doNext = () => {
       if (i < ops.length) {
         ops[i]().then(() => sleep(500)).then(() => {
           i++;
