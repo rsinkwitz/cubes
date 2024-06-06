@@ -39,12 +39,12 @@ let cubeStep: number = 1;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
-const fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
-const rotPieces: THREE.Group[] = [];   // the list of pieces, changed by rotations
-const infoGroups: THREE.Group[] = [];
+let fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
+let rotPieces: THREE.Group[] = [];   // the list of pieces, changed by rotations
+let infoGroups: THREE.Group[] = [];
 
-const opsHistory: string[] = []; // the list of operations performed
-const opsTodo: string[] = []; // the list of operations to perform automatically
+let opsHistory: string[] = []; // the list of operations performed
+let opsTodo: string[] = []; // the list of operations to perform automatically
 
 enum ColorMask {
   All = 0, // all faces
@@ -829,7 +829,7 @@ function rotate(key: string): void {
 function rotateGraphics(pieces: THREE.Group[], axis: string, degrees: number): void {
   // rotate the selected pieces as animation
   pieces.forEach((piece) => {
-    const startMatrix = piece.matrixWorld.clone();
+    const startMatrix = piece.matrix.clone();
     const animObj = {lerpFactor: 0};
 
     const tl = gsap.timeline();
@@ -862,7 +862,7 @@ function sleep(ms: number): Promise<void> {
 function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Group[] {
   // rotate the cube model. It must follow the rotation so that slices can properly be selected after each rotation
   const keyLc = key === key.toLowerCase();
-  const piecesToRotate: THREE.Group[] = []; // the pieces to rotate
+  let piecesToRotate: THREE.Group[] = []; // the pieces to rotate
   switch (key.toLowerCase()) {
     case "x":
       piecesToRotate = rotPieces;
