@@ -4,8 +4,7 @@ import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
 import {Font, FontLoader} from 'three/examples/jsm/loaders/FontLoader';
 import { VertexNormalsHelper } from 'three/examples/jsm/helpers/VertexNormalsHelper';
 import gsap from "gsap";
-
-
+import { GUI } from 'dat.gui';
 import { BoxGeometryEnh } from './BoxGeometryEnh';
 
 declare global {
@@ -21,6 +20,7 @@ let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
 let controls: OrbitControls;
 let renderer: THREE.WebGLRenderer;
+let gui: GUI;
 let baseGroup: THREE.Group;
 
 let animationPaused: boolean = true;
@@ -166,6 +166,8 @@ function init(): void {
   scene.add(baseGroup);
 
   createMain();
+
+  gui = setupGui();
 
   controls = new OrbitControls(camera, renderer.domElement);
 
@@ -515,11 +517,15 @@ function removeNormals(): void {
   fixedPieces.forEach((piece) => {
     piece.children.forEach((pc) => {
       if (pc.name === "normals") {
+        let arrowHelpers: THREE.ArrowHelper[] = [];
         pc.children.forEach((ah) => {
           if (ah instanceof THREE.ArrowHelper) {
-            pc.remove(ah);
-            (ah as THREE.ArrowHelper).dispose();
+            arrowHelpers.push(ah);
           }
+        });
+        arrowHelpers.forEach((ah) => {
+          pc.remove(ah);
+          ah.dispose();
         });
       }
     });
@@ -568,7 +574,7 @@ function setAllCubeColors(): void {
         const piece = fixedPieces[index];
         const box = getBox(piece);
         const enabled = box.userData.enabled;
-        console.log("index: " + index + " enabled: " + enabled);
+        // console.log("index: " + index + " enabled: " + enabled);
 
         const materials: THREE.Material[] = [];
         for (let i = 0; i < 12; i++) {
@@ -1103,6 +1109,61 @@ function morphCombined(newState: number): Promise<void> {
     })
     .then(() => resolve());
   });
+}
+
+function setupGui(): GUI {
+  const gui = new GUI({closed: false, width: 100});
+  gui.close();
+  // gui.add( document, 'title' ).name('');
+  gui.add({ fun: () => toggleRotationInfos() },'fun').name('Help [F1]');
+  const looksFolder = gui.addFolder('Looks')
+  looksFolder.add({ fun: () => setAllCubeFaces() },'fun').name('Cube-Colors [F5]');
+  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyramid-Colors [F5]');
+  looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]]');
+
+  const shapeFolder = gui.addFolder('Shape')
+  shapeFolder.add({ fun: () => morphCombined(0) },'fun').name('3x3 [F2]');
+  shapeFolder.add({ fun: () => morphCombined(1) },'fun').name('2x2 [F3]');
+  shapeFolder.add({ fun: () => morphCombined(3) },'fun').name('Pyramorphix [F4]');
+  shapeFolder.add({ fun: () => morphCombined(2) },'fun').name('Poke-like [F5]');
+
+  const rotFolder = gui.addFolder('Rotations')
+  rotFolder.add({ fun: () => rotateByButton('l') },'fun').name('Left [l]');
+  rotFolder.add({ fun: () => rotateByButton('m') },'fun').name('Middle [m]');
+  rotFolder.add({ fun: () => rotateByButton('r') },'fun').name('Right [r]');
+  rotFolder.add({ fun: () => rotateByButton('u') },'fun').name('Up [u]');
+  rotFolder.add({ fun: () => rotateByButton('e') },'fun').name('Equator [e]');
+  rotFolder.add({ fun: () => rotateByButton('d') },'fun').name('Down [d]');
+  rotFolder.add({ fun: () => rotateByButton('f') },'fun').name('Front [f]');
+  rotFolder.add({ fun: () => rotateByButton('s') },'fun').name('Standing [s]');
+  rotFolder.add({ fun: () => rotateByButton('b') },'fun').name('Back [b]');
+  rotFolder.add({ fun: () => rotateByButton('x') },'fun').name('X-axis [x]');
+  rotFolder.add({ fun: () => rotateByButton('y') },'fun').name('Y-axis [y]');
+  rotFolder.add({ fun: () => rotateByButton('z') },'fun').name('Z-axis [z]');
+  rotFolder.add({ fun: () => undoOperation() },'fun').name('Undo [^z,9]');
+  rotFolder.add({ fun: () => shuffle() },'fun').name('Shuffle [F9]');
+  rotFolder.add({ fun: () => resetMain() },'fun').name('Reset [F10]');
+  
+  const dbgFolder = gui.addFolder('Debug')
+  dbgFolder.add({ fun: () => toggleShowOneCube() },'fun').name('Only 1 [l]');
+  dbgFolder.add({ fun: () => addNormals() },'fun').name('Normals On [l]');
+  dbgFolder.add({ fun: () => removeNormals() },'fun').name('Normals Off [l]');
+
+  
+
+  // cubeFolder.open()
+  // const cameraFolder = gui.addFolder('Camera')
+  // cameraFolder.add(camera.position, 'z', 0, 10)
+  // cameraFolder.open()
+  
+  return gui;
+}
+
+function rotateByButton(key: string): void {
+  if (shiftKeyDown) {
+    key = key.toUpperCase();
+  }
+  rotate(key);
 }
 
 function onKeyDown(event: KeyboardEvent): void {
