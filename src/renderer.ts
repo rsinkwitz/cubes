@@ -50,7 +50,7 @@ let opsTodo: string[] = []; // the list of operations to perform automatically
 
 const basicMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({color: 0xff0000, roughness: roughness}), // right  red     0
-  new THREE.MeshStandardMaterial({color: 0xFFC700, roughness: roughness}), // left   orange  1
+  new THREE.MeshStandardMaterial({color: 0xFFB700, roughness: roughness}), // left   orange  1
   new THREE.MeshStandardMaterial({color: 0xffffff, roughness: roughness}), // top    white   2
   new THREE.MeshStandardMaterial({color: 0xffff00, roughness: roughness}), // bottom yellow  3
   new THREE.MeshStandardMaterial({color: 0x00ff00, roughness: roughness}), // front  green   4
@@ -78,7 +78,7 @@ function init(): void {
   scene.add(axesHelper);
 
   baseGroup = new THREE.Group();
-  baseGroup.matrixAutoUpdate = false;
+  // baseGroup.matrixAutoUpdate = false;
   resetBasegroupRotation();
   scene.add(baseGroup);
 
@@ -728,11 +728,15 @@ function undoOperation(): void {
   }
 }
 
+  function rotateByEvent(event: KeyboardEvent): void {
+    rotate(event.key + (event.ctrlKey ? "^" : ""));
+  }
+
 function rotate(key: string): void {
   if (numAnims > 0) {
     return; // no rotation while an animation is running
   }
-  const {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
+  const {axis, degrees, forward, nums} = getRotationData(key[0].toLowerCase());
 
   if (isHideNext) {
     toggleHideObjects(nums.map((index) => rotPieces[index])); // toggle hide state instead
@@ -784,37 +788,63 @@ function sleep(ms: number): Promise<void> {
 
 function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Group[] {
   // rotate the cube model. It must follow the rotation so that slices can properly be selected after each rotation
+  let isCtrl = key.endsWith('^');
+  key = key[0];
   const keyLc = key === key.toLowerCase();
   let piecesToRotate: THREE.Group[] = []; // the pieces to rotate
   switch (key.toLowerCase()) {
     case "x":
-      piecesToRotate = rotPieces;
+      piecesToRotate = rotPieces; // all pieces
       rotateModelSliceByKey("l", !keyLc);
       rotateModelSliceByKey("m", !keyLc);
       rotateModelSliceByKey("r", keyLc);
       break;
     case "y":
-      piecesToRotate = rotPieces;
+      piecesToRotate = rotPieces; // all pieces
       rotateModelSliceByKey("u", keyLc);
       rotateModelSliceByKey("e", !keyLc);
       rotateModelSliceByKey("d", !keyLc);
       break;
     case "z":
-      piecesToRotate = rotPieces;
+      piecesToRotate = rotPieces; // all pieces
       rotateModelSliceByKey("f", keyLc);
       rotateModelSliceByKey("s", keyLc);
       rotateModelSliceByKey("b", !keyLc);
       break;
     default:
-      piecesToRotate = nums.map((index) => rotPieces[index]);
       rotateModelSlice(nums, keyLc === forward);
+      if (isCtrl) {
+        let nums2 = rotateAdjacentSlice(key, keyLc === forward);
+        nums = nums.concat(nums2);
+      }
+      piecesToRotate = nums.map((index) => rotPieces[index]);
   }
   return piecesToRotate;
 }
 
-function rotateModelSliceByKey(key: string, keyLc: boolean): void {
+function rotateAdjacentSlice(key: string, forward: boolean): number[] {
+  let nums: number[] = [];
+  switch (key.toLowerCase()) {
+    case "l":
+      return rotateModelSliceByKey("m", forward);
+    case "r":
+      return rotateModelSliceByKey("m", !forward);
+    case "f":
+      return rotateModelSliceByKey("s", forward);
+    case "b":
+      return rotateModelSliceByKey("s", !forward);
+    case "u":
+      return rotateModelSliceByKey("e", !forward);
+    case "d":
+      return rotateModelSliceByKey("e", forward);
+  }
+  return nums;
+}
+
+function rotateModelSliceByKey(key: string, keyLc: boolean): number[] {
   const {axis, degrees, forward, nums} = getRotationData(key.toLowerCase());
   rotateModelSlice(nums, keyLc === forward);
+  return nums;
 }
 
 function rotateModelSlice(nums: number[], rightRotate: boolean): void {
@@ -1151,13 +1181,6 @@ function setupGui(): GUI {
   dbgFolder.add({ fun: () => toggleShowOneCube() },'fun').name('Only 1 [l]');
   dbgFolder.add({ fun: () => addNormals() },'fun').name('Normals On [l]');
   dbgFolder.add({ fun: () => removeNormals() },'fun').name('Normals Off [l]');
-
-  
-
-  // cubeFolder.open()
-  // const cameraFolder = gui.addFolder('Camera')
-  // cameraFolder.add(camera.position, 'z', 0, 10)
-  // cameraFolder.open()
   
   return gui;
 }
@@ -1170,29 +1193,24 @@ function rotateByButton(key: string): void {
 }
 
 function resetBasegroupRotation(): void {
-  baseGroup.rotation.set(Math.PI / 180 * 30, Math.PI / 180 * -35, 0);
-  baseGroup.updateMatrix();
+  isViewRight = true;
+  isViewBack = false;
+  animationPaused = true;
+  setViewRotation(baseGroup); 
 }
 
-function toggleViewRight(): void {
-  isViewRight = !isViewRight;
-  setBasegroupRotation();
-}
-
-function toggleViewBack(): void {
-  isViewBack = !isViewBack;
-  setBasegroupRotation();
+function setViewRotation(group: THREE.Group): void {
+  const angles = [ {x: 30, y: 35}, {x: 30, y: -35}, {x: 130, y: 35}, {x: 130, y: -35} ];
+  let pos = (isViewRight ? 1 : 0) + 2 * (isViewBack ? 1 : 0);
+  // console.log("pos: "+ pos);
+  group.rotation.set(Math.PI / 180 * angles[pos].x, Math.PI / 180 * angles[pos].y, 0);
+  group.updateMatrix();
 }
 
 function setBasegroupRotation(): void {
-  const angles = [ {x: 30, y: -35}, {x: 30, y: 35}, {x: 130, y: 35}, {x: 130, y: -35} ];
-  let pos = (isViewRight ? 1 : 0) + 2 * (isViewBack ? 1 : 0);
-  console.log("pos: "+ pos);
-  console.log("angles: " + angles[pos].x + ", " + angles[pos].y);
-
   const startQuaternion = baseGroup.quaternion.clone();
   const targetState = new THREE.Group();
-  targetState.rotation.set(Math.PI / 180 * angles[pos].x, Math.PI / 180 * angles[pos].y, 0);
+  setViewRotation(targetState);
   targetState.updateMatrix();
   const targetQuaternion = targetState.quaternion.clone();
 
@@ -1250,10 +1268,12 @@ function onKeyDown(event: KeyboardEvent): void {
       resetBasegroupRotation();
       break;
     case "1":
-      toggleViewRight();
+      isViewRight = !isViewRight;
+      setBasegroupRotation();      
       break;
     case "2":
-      toggleViewBack();
+      isViewBack = !isViewBack;
+      setBasegroupRotation();
       break;
     case "5":
       toggleShowOneCube();
@@ -1310,7 +1330,7 @@ function onKeyDown(event: KeyboardEvent): void {
     case "X":
     case "y": // y-axis
     case "Y":
-      rotate(event.key);
+      rotateByEvent(event);
       break;
     case "z": // z-axis
     case "Z":
@@ -1374,6 +1394,7 @@ function onKeyDown(event: KeyboardEvent): void {
     default:
       break;
   }
+  event.preventDefault();
 }
 
 document.addEventListener("keydown", onKeyDown);
