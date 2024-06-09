@@ -32,8 +32,11 @@ let isPyraShape: boolean = false;
 let isPyraColors: boolean = false;
 let testIndex: number = 0;
 let isShowOneCube: boolean = false;
-let cubeSize: number = 0.98;
-let cubeStep: number = 1;
+let isViewRight: boolean = true;
+let isViewBack: boolean = false;
+
+const cubeSize: number = 0.98;
+const cubeStep: number = 1;
 const roughness: number = 0.2;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
@@ -75,6 +78,7 @@ function init(): void {
   scene.add(axesHelper);
 
   baseGroup = new THREE.Group();
+  baseGroup.matrixAutoUpdate = false;
   resetBasegroupRotation();
   scene.add(baseGroup);
 
@@ -82,8 +86,6 @@ function init(): void {
 
   gui = setupGui();
 
-  // controls = new OrbitControls(camera, renderer.domElement);
-  // Add custom controls
   const controls = new CustomControls(baseGroup, renderer.domElement, document);
 
   const ambientLight = new THREE.AmbientLight(0x333333);
@@ -92,13 +94,12 @@ function init(): void {
   createDirLight(-5, 0, 2);
   createDirLight(5, 0, 2);
   createDirLight(0, -5, 2);
-  // createDirLight(0, 5, 2);
+  createDirLight(0, 5, 2);
   // createDirLight(0, 0, -2);
 
   camera.position.set(0, 0, 6);
   camera.lookAt(0, 0, 0);
   controls.update();
-  // controls.saveState();
 
   animate();
 }
@@ -862,11 +863,11 @@ function scaleTo2x2(forward: boolean): Promise<void> {
   return new Promise((resolve) => {
     const centerIndexes = [1,3,4,5,7,9,10,11,12,13,14,15,16,17,19,21,22,23,25]; // the center pieces, all except the corners
     const centerPieces = centerIndexes.map((index) => fixedPieces[index]);
-    const centerStartMatrices = centerPieces.map((piece) => piece.matrixWorld.clone());
+    const centerStartMatrices = centerPieces.map((piece) => piece.matrix.clone());
 
     const cornerIndexes = [0,2,6,8,18,20,24,26]; // the corner pieces
     const cornerPieces = cornerIndexes.map((index) => fixedPieces[index]);
-    const cornerStartMatrices = cornerPieces.map((piece) => piece.matrixWorld.clone());
+    const cornerStartMatrices = cornerPieces.map((piece) => piece.matrix.clone());
 
     if (!forward) {
        centerPieces.forEach((piece) => { piece.visible = true; });
@@ -1169,8 +1170,46 @@ function rotateByButton(key: string): void {
 }
 
 function resetBasegroupRotation(): void {
-  baseGroup.rotation.set(Math.PI / 180 * 30, Math.PI / 180 * -40, 0);
+  baseGroup.rotation.set(Math.PI / 180 * 30, Math.PI / 180 * -35, 0);
   baseGroup.updateMatrix();
+}
+
+function toggleViewRight(): void {
+  isViewRight = !isViewRight;
+  setBasegroupRotation();
+}
+
+function toggleViewBack(): void {
+  isViewBack = !isViewBack;
+  setBasegroupRotation();
+}
+
+function setBasegroupRotation(): void {
+  const angles = [ {x: 30, y: -35}, {x: 30, y: 35}, {x: 130, y: 35}, {x: 130, y: -35} ];
+  let pos = (isViewRight ? 1 : 0) + 2 * (isViewBack ? 1 : 0);
+  console.log("pos: "+ pos);
+  console.log("angles: " + angles[pos].x + ", " + angles[pos].y);
+
+  const startQuaternion = baseGroup.quaternion.clone();
+  const targetState = new THREE.Group();
+  targetState.rotation.set(Math.PI / 180 * angles[pos].x, Math.PI / 180 * angles[pos].y, 0);
+  targetState.updateMatrix();
+  const targetQuaternion = targetState.quaternion.clone();
+
+  const animObj = {lerpFactor: 0};
+  const tl = gsap.timeline();
+  numAnims++;
+  tl.to(animObj, {
+    lerpFactor: 1, duration: 0.5, ease: "linear",
+    onUpdate: () => {
+      console.log("lerpFactor: " + animObj.lerpFactor);
+      baseGroup.quaternion.slerp(targetQuaternion, animObj.lerpFactor);
+      baseGroup.updateMatrix();
+    },
+    onComplete: () => {
+      numAnims--;
+    }
+  });
 }
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -1194,10 +1233,10 @@ function onKeyDown(event: KeyboardEvent): void {
       isPyraColors = false;
       setAllCubeFaces();
       break;
-      case "F7":
-        isPyraColors = true;
-        setAllCubeFaces();
-        break;
+    case "F7":
+      isPyraColors = true;
+      setAllCubeFaces();
+      break;
     case "F9":
       shuffle();
       break;
@@ -1207,15 +1246,28 @@ function onKeyDown(event: KeyboardEvent): void {
     case "F12":
       window.ipcRenderer.send('open-dev-tools');
       break;
+    case "0":
+      resetBasegroupRotation();
+      break;
     case "1":
-      toggleShowOneCube();
+      toggleViewRight();
       break;
     case "2":
+      toggleViewBack();
+      break;
+    case "5":
+      toggleShowOneCube();
+      break;
+    case "6":
       addNormals();
       break;
-    case "3":
+    case "7":
       removeNormals();
       break;
+    case "9":
+      undoOperation();
+      break;
+
     case "q":
       window.ipcRenderer.send('app-quit');
       break;
@@ -1232,9 +1284,9 @@ function onKeyDown(event: KeyboardEvent): void {
       isHideNext = true;
       break;
     case "w":
-      case "W":
-          toggleWireframe();
-        break;
+    case "W":
+      toggleWireframe();
+      break;
 
     case "l": // left
     case "L":
@@ -1268,6 +1320,11 @@ function onKeyDown(event: KeyboardEvent): void {
       } else {
         rotate(event.key);
       }
+      break;
+
+    case "p": // Pause animation
+    case "P":
+      animationPaused = !animationPaused;
       break;
 
     case "ArrowUp":
@@ -1313,17 +1370,6 @@ function onKeyDown(event: KeyboardEvent): void {
     case "K":
       baseGroup.rotation.z -= 0.1;
       baseGroup.updateMatrix();
-      break;
-    case "0":
-      resetBasegroupRotation();
-      break;
-    case "9":
-      undoOperation();
-      break;
-
-    case "p": // Pause animation
-    case "P":
-      animationPaused = !animationPaused;
       break;
     default:
       break;
