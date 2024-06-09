@@ -5,7 +5,8 @@
     "outDir": "dist",
     "strict": true,
     "inlineSources": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "allowJs": true
   },
   "include": [
     "src/**/*",
