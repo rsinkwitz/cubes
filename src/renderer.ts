@@ -21,7 +21,7 @@ let renderer: THREE.WebGLRenderer;
 let gui: GUI;
 let baseGroup: THREE.Group;
 
-let animationPaused: boolean = true;
+let tumble: boolean = false;
 let isShowNumbers: boolean = false;
 let showAxes: boolean = false;
 let showRotationInfos: boolean = false;
@@ -79,7 +79,7 @@ function init(): void {
 
   baseGroup = new THREE.Group();
   // baseGroup.matrixAutoUpdate = false;
-  resetBasegroupRotation();
+  resetView();
   scene.add(baseGroup);
 
   createMain();
@@ -188,6 +188,12 @@ function toggleRotationInfos(): void {
 
 function toggleWireframe(): void {
   isWireframe = !isWireframe;
+  setAllCubeFaces();
+}
+
+function toggleNumbers(): void {
+  isWireframe = false;
+  isShowNumbers = !isShowNumbers;
   setAllCubeFaces();
 }
 
@@ -477,6 +483,8 @@ interface MaskEnabled {
 }
 
 function setAllCubeColors(): void {
+  isWireframe = false;
+  isShowNumbers = false;
   const maskEnabled: MaskEnabled = getMaskEnabled(); 
   rotPieces.forEach((piece, index) => {
     const enabled999 = maskEnabled[999];
@@ -521,6 +529,8 @@ function setCubeFaceColor(materials: THREE.Material[], index: number, i1: number
 }
 
 function setAllPyraColors(): void {
+  isWireframe = false;
+  isShowNumbers = false;
   const initialMaterials: THREE.Material[] = [];
   for (let i = 0; i < 12; i++) {
     initialMaterials.push(blackMaterial);
@@ -652,7 +662,7 @@ function createRotationInfos(visible: boolean, inverse: boolean): void {
 
 function animate(): void {
   requestAnimationFrame(animate);
-  if (!animationPaused) {
+  if (tumble) {
     baseGroup.rotation.x += 0.01;
     baseGroup.rotation.y += 0.01;
     baseGroup.rotation.z += 0.01;
@@ -729,7 +739,7 @@ function undoOperation(): void {
 }
 
   function rotateByEvent(event: KeyboardEvent): void {
-    rotate(event.key + (event.ctrlKey ? "^" : ""));
+    rotate(event.key + (event.altKey ? "!" : ""));
   }
 
 function rotate(key: string): void {
@@ -788,7 +798,7 @@ function sleep(ms: number): Promise<void> {
 
 function rotateModel(key: string, forward: boolean, nums: number[]): THREE.Group[] {
   // rotate the cube model. It must follow the rotation so that slices can properly be selected after each rotation
-  let isCtrl = key.endsWith('^');
+  let isCtrl = key.endsWith('!');
   key = key[0];
   const keyLc = key === key.toLowerCase();
   let piecesToRotate: THREE.Group[] = []; // the pieces to rotate
@@ -834,9 +844,9 @@ function rotateAdjacentSlice(key: string, forward: boolean): number[] {
     case "b":
       return rotateModelSliceByKey("s", !forward);
     case "u":
-      return rotateModelSliceByKey("e", !forward);
-    case "d":
       return rotateModelSliceByKey("e", forward);
+    case "d":
+      return rotateModelSliceByKey("e", !forward);
   }
   return nums;
 }
@@ -1149,16 +1159,20 @@ function setupGui(): GUI {
   gui.close();
   // gui.add( document, 'title' ).name('');
   gui.add({ fun: () => toggleRotationInfos() },'fun').name('Help [F1]');
-  const looksFolder = gui.addFolder('Looks')
-  looksFolder.add({ fun: () => setAllCubeFaces() },'fun').name('Cube-Colors [F5]');
-  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyramid-Colors [F5]');
-  looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]]');
-
   const shapeFolder = gui.addFolder('Shape')
   shapeFolder.add({ fun: () => morphCombined(0) },'fun').name('3x3 [F2]');
   shapeFolder.add({ fun: () => morphCombined(1) },'fun').name('2x2 [F3]');
   shapeFolder.add({ fun: () => morphCombined(3) },'fun').name('Pyramorphix [F4]');
   shapeFolder.add({ fun: () => morphCombined(2) },'fun').name('Poke-like [F5]');
+
+  const looksFolder = gui.addFolder('View')
+  looksFolder.add({ fun: () => setAllCubeColors() },'fun').name('Cube-Colors [F5]');
+  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyramid-Colors [F5]');
+  looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]]');
+  looksFolder.add({ fun: () => toggleNumbers() },'fun').name('Numbers [n]]');
+  looksFolder.add({ fun: () => toggleViewRight() },'fun').name('Left/Right [1]]');
+  looksFolder.add({ fun: () => toggleViewBack() },'fun').name('Front/Back [2]]');
+  looksFolder.add({ fun: () => toggleTumble() },'fun').name('Tumble [t]]');
 
   const rotFolder = gui.addFolder('Rotations')
   rotFolder.add({ fun: () => rotateByButton('l') },'fun').name('Left [l]');
@@ -1192,15 +1206,15 @@ function rotateByButton(key: string): void {
   rotate(key);
 }
 
-function resetBasegroupRotation(): void {
+function resetView(): void {
   isViewRight = true;
   isViewBack = false;
-  animationPaused = true;
+  tumble = false;
   setViewRotation(baseGroup); 
 }
 
 function setViewRotation(group: THREE.Group): void {
-  const angles = [ {x: 30, y: 35}, {x: 30, y: -35}, {x: 130, y: 35}, {x: 130, y: -35} ];
+  const angles = [ {x: 30, y: 30}, {x: 30, y: -30}, {x: 130, y: 30}, {x: 130, y: -30} ];
   let pos = (isViewRight ? 1 : 0) + 2 * (isViewBack ? 1 : 0);
   // console.log("pos: "+ pos);
   group.rotation.set(Math.PI / 180 * angles[pos].x, Math.PI / 180 * angles[pos].y, 0);
@@ -1265,15 +1279,13 @@ function onKeyDown(event: KeyboardEvent): void {
       window.ipcRenderer.send('open-dev-tools');
       break;
     case "0":
-      resetBasegroupRotation();
+      resetView();
       break;
     case "1":
-      isViewRight = !isViewRight;
-      setBasegroupRotation();      
+      toggleViewRight();      
       break;
     case "2":
-      isViewBack = !isViewBack;
-      setBasegroupRotation();
+      toggleViewBack();
       break;
     case "5":
       toggleShowOneCube();
@@ -1296,8 +1308,7 @@ function onKeyDown(event: KeyboardEvent): void {
       break;
     case "n":
     case "N":
-      isShowNumbers = !isShowNumbers;
-      setAllCubeFaces();
+      toggleNumbers();
       break;
     case "i":
     case "I":
@@ -1338,13 +1349,13 @@ function onKeyDown(event: KeyboardEvent): void {
       if (event.ctrlKey) {
         undoOperation();
       } else {
-        rotate(event.key);
+        rotateByEvent(event);
       }
       break;
 
-    case "p": // Pause animation
-    case "P":
-      animationPaused = !animationPaused;
+    case "t": // Pause animation
+    case "T":
+      toggleTumble();
       break;
 
     case "ArrowUp":
@@ -1426,3 +1437,17 @@ window.addEventListener('resize', function() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+function toggleViewBack() {
+  isViewBack = !isViewBack;
+  setBasegroupRotation();
+}
+
+function toggleViewRight() {
+  isViewRight = !isViewRight;
+  setBasegroupRotation();
+}
+
+function toggleTumble() {
+  tumble = !tumble;
+}
