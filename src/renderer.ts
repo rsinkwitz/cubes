@@ -79,16 +79,15 @@ function init(): void {
 
   renderer.setClearColor(0xb0c4de); // Light blue-gray color in hexadecimal
   
-  const axesHelper = new THREE.AxesHelper(3);
-  axesHelper.visible = showAxes;
-  scene.add(axesHelper);
-
   baseGroup = new THREE.Group();
-  // baseGroup.matrixAutoUpdate = false;
   resetView();
   scene.add(baseGroup);
 
   createMain();
+
+  const axesHelper = new THREE.AxesHelper(3);
+  axesHelper.visible = showAxes;
+  baseGroup.add(axesHelper);
 
   gui = setupGui();
 
@@ -177,7 +176,7 @@ function resetMain() {
 
 function toggleAxes(): void {
   showAxes = !showAxes;
-  scene.children.forEach((child) => {
+  baseGroup.children.forEach((child) => {
     if (child instanceof THREE.AxesHelper) {
       child.visible = showAxes;
     }
@@ -1170,51 +1169,6 @@ function getMaskEnabled(): MaskEnabled {
   }
 }
 
-function setupGui(): GUI {
-  const gui = new GUI({closed: false, width: 100});
-  gui.close();
-  // gui.add( document, 'title' ).name('');
-  gui.add({ fun: () => toggleRotationInfos() },'fun').name('Help [F1]');
-  const shapeFolder = gui.addFolder('Shape')
-  shapeFolder.add({ fun: () => morphCombined(0) },'fun').name('3x3 [F2]');
-  shapeFolder.add({ fun: () => morphCombined(1) },'fun').name('2x2 [F3]');
-  shapeFolder.add({ fun: () => morphCombined(3) },'fun').name('Pyramorphix [F4]');
-  shapeFolder.add({ fun: () => morphCombined(2) },'fun').name('Poke-like [F5]');
-
-  const looksFolder = gui.addFolder('View')
-  looksFolder.add({ fun: () => toggleViewRight() },'fun').name('Left/Right [1]]');
-  looksFolder.add({ fun: () => toggleViewBack() },'fun').name('Backside [2]]');
-  looksFolder.add({ fun: () => toggleViewUnder() },'fun').name('Underside [2]]');
-  looksFolder.add({ fun: () => toggleTumble() },'fun').name('Tumble [t]]');
-  looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]]');
-  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyramid-Colors [F5]');
-  looksFolder.add({ fun: () => setAllCubeColors() },'fun').name('Cube-Colors [F5]');
-
-  const rotFolder = gui.addFolder('Rotations')
-  rotFolder.add({ fun: () => undoOperation() },'fun').name('Undo [^z,9]');
-  rotFolder.add({ fun: () => shuffle() },'fun').name('Shuffle [F9]');
-  rotFolder.add({ fun: () => resetMain() },'fun').name('Reset [F10]');
-  rotFolder.add({ fun: () => rotateByButton('l') },'fun').name('Left [l]');
-  rotFolder.add({ fun: () => rotateByButton('m') },'fun').name('Middle [m]');
-  rotFolder.add({ fun: () => rotateByButton('r') },'fun').name('Right [r]');
-  rotFolder.add({ fun: () => rotateByButton('u') },'fun').name('Up [u]');
-  rotFolder.add({ fun: () => rotateByButton('e') },'fun').name('Equator [e]');
-  rotFolder.add({ fun: () => rotateByButton('d') },'fun').name('Down [d]');
-  rotFolder.add({ fun: () => rotateByButton('f') },'fun').name('Front [f]');
-  rotFolder.add({ fun: () => rotateByButton('s') },'fun').name('Standing [s]');
-  rotFolder.add({ fun: () => rotateByButton('b') },'fun').name('Back [b]');
-  rotFolder.add({ fun: () => rotateByButton('x') },'fun').name('X-axis [x]');
-  rotFolder.add({ fun: () => rotateByButton('y') },'fun').name('Y-axis [y]');
-  rotFolder.add({ fun: () => rotateByButton('z') },'fun').name('Z-axis [z]');
-  
-  const dbgFolder = gui.addFolder('Debug')
-  looksFolder.add({ fun: () => toggleNumbers() },'fun').name('Show Numbers [n]]');
-  dbgFolder.add({ fun: () => toggleShowOneCube() },'fun').name('Only 1 [5]');
-  dbgFolder.add({ fun: () => toggleNormals() },'fun').name('Show Normals [4]');
-  dbgFolder.add({ fun: () => toggleAxes() },'fun').name('Show Axes [a]');  
-  return gui;
-}
-
 function rotateByButton(key: string): void {
   if (shiftKeyDown) {
     key = key.toUpperCase();
@@ -1289,6 +1243,50 @@ function toggleNormals(): void {
   isNormals = !isNormals;
 }
 
+function setupGui(): GUI {
+  const gui = new GUI({closed: false, width: 120});
+  gui.close();
+  // gui.add( document, 'title' ).name('');
+  gui.add({ fun: () => toggleRotationInfos() },'fun').name('Help [F1]');
+  const shapeFolder = gui.addFolder('Shape')
+  shapeFolder.add({ fun: () => morphCombined(0) },'fun').name('3x3 [F2]');
+  shapeFolder.add({ fun: () => morphCombined(1) },'fun').name('2x2 [F3]');
+  shapeFolder.add({ fun: () => morphCombined(3) },'fun').name('Pyramorphix [F4]');
+  shapeFolder.add({ fun: () => morphCombined(2) },'fun').name('Poke-like [F5]');
+
+  const looksFolder = gui.addFolder('View')
+  looksFolder.add({ fun: () => toggleViewRight() },'fun').name('Left/Right [1]');
+  looksFolder.add({ fun: () => toggleViewBack() },'fun').name('Backside [2]');
+  looksFolder.add({ fun: () => toggleViewUnder() },'fun').name('Underside [3]');
+  looksFolder.add({ fun: () => toggleTumble() },'fun').name('Tumble [t]');
+  looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]');
+  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyramid-Colors [F6]');
+  looksFolder.add({ fun: () => setAllCubeColors() },'fun').name('Cube-Colors [F7]');
+
+  const rotFolder = gui.addFolder('Rotations')
+  rotFolder.add({ fun: () => undoOperation() },'fun').name('Undo [^z,9]');
+  rotFolder.add({ fun: () => shuffle() },'fun').name('Shuffle [F9]');
+  rotFolder.add({ fun: () => resetMain() },'fun').name('Reset [F10]');
+  rotFolder.add({ fun: () => rotateByButton('l') },'fun').name('Left [l]');
+  rotFolder.add({ fun: () => rotateByButton('m') },'fun').name('Middle [m]');
+  rotFolder.add({ fun: () => rotateByButton('r') },'fun').name('Right [r]');
+  rotFolder.add({ fun: () => rotateByButton('u') },'fun').name('Up [u]');
+  rotFolder.add({ fun: () => rotateByButton('e') },'fun').name('Equator [e]');
+  rotFolder.add({ fun: () => rotateByButton('d') },'fun').name('Down [d]');
+  rotFolder.add({ fun: () => rotateByButton('f') },'fun').name('Front [f]');
+  rotFolder.add({ fun: () => rotateByButton('s') },'fun').name('Standing [s]');
+  rotFolder.add({ fun: () => rotateByButton('b') },'fun').name('Back [b]');
+  rotFolder.add({ fun: () => rotateByButton('x') },'fun').name('X-axis [x]');
+  rotFolder.add({ fun: () => rotateByButton('y') },'fun').name('Y-axis [y]');
+  rotFolder.add({ fun: () => rotateByButton('z') },'fun').name('Z-axis [z]');
+  
+  const dbgFolder = gui.addFolder('Debug')
+  dbgFolder.add({ fun: () => toggleAxes() },'fun').name('Show Axes [a]');  
+  dbgFolder.add({ fun: () => toggleNumbers() },'fun').name('Show Numbers [n]');
+  dbgFolder.add({ fun: () => toggleNormals() },'fun').name('Show Normals [4]');
+  return gui;
+}
+
 function onKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case "F1":
@@ -1307,11 +1305,11 @@ function onKeyDown(event: KeyboardEvent): void {
       morphCombined(2);
       break;
     case "F6":
-      isPyraColors = false;
+      isPyraColors = true;
       setAllCubeFaces();
       break;
     case "F7":
-      isPyraColors = true;
+      isPyraColors = false;
       setAllCubeFaces();
       break;
     case "F9":
