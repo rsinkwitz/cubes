@@ -21,23 +21,26 @@ let renderer: THREE.WebGLRenderer;
 let gui: GUI;
 let baseGroup: THREE.Group;
 
-let tumble: boolean = false;
-let isShowNumbers: boolean = false;
-let showAxes: boolean = false;
-let showRotationInfos: boolean = false;
-let isWireframe: boolean = false;
-let isHideNext: boolean = false;
-let is2x2: boolean = false;
-let isPyraShape: boolean = false;
-let isPyraColors: boolean = false;
+let tumble = false;
+let isShowNumbers = false;
+let showAxes = false;
+let showRotationInfos = false;
+let isWireframe = false;
+let isHideNext = false;
+let is2x2 = false;
+let isPyraShape = false;
+let isPyraColors = false;
 let testIndex: number = 0;
-let isShowOneCube: boolean = false;
-let isViewRight: boolean = true;
-let isViewBack: boolean = false;
+let isShowOneCube = false;
+let isViewRight = true;
+let viewUp = 1;
+let isNormals = false;
 
 const cubeSize: number = 0.98;
 const cubeStep: number = 1;
 const roughness: number = 0.2;
+const objectWidth = 6.5;
+const objectHeight = 6.5;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
 
@@ -61,18 +64,21 @@ const grayMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial(
 const wireframeMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x000000, wireframe: true});
 
 function init(): void {
+  const aspect = window.innerWidth / window.innerHeight;
+  const fov = 60;
+  camera = new THREE.PerspectiveCamera(fov, aspect, 0.1, 1000);
+  
+  // Calculate the initial distance and set the camera position
+  const initialDistance = calculateDistanceToFitObject(camera, objectWidth, objectHeight);
+  camera.position.z = initialDistance;
+  
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(
-    50,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor(0xb0c4de); // Light blue-gray color in hexadecimal
   document.body.appendChild(renderer.domElement);
 
+  renderer.setClearColor(0xb0c4de); // Light blue-gray color in hexadecimal
+  
   const axesHelper = new THREE.AxesHelper(3);
   axesHelper.visible = showAxes;
   scene.add(axesHelper);
@@ -97,8 +103,12 @@ function init(): void {
   createDirLight(0, 5, 2);
   // createDirLight(0, 0, -2);
 
-  camera.position.set(0, 0, 6);
-  camera.lookAt(0, 0, 0);
+  // camera.position.set(0, 0, 10);
+  // camera.lookAt(0, 0, 0);
+
+// Initial camera update
+  updateCamera(camera, objectWidth, objectHeight);
+
   controls.update();
 
   animate();
@@ -483,7 +493,10 @@ interface MaskEnabled {
 }
 
 function setAllCubeColors(): void {
-  isWireframe = false;
+  isPyraColors = false;
+  if (isWireframe || isShowNumbers) {
+    return;
+  }
   isShowNumbers = false;
   const maskEnabled: MaskEnabled = getMaskEnabled(); 
   rotPieces.forEach((piece, index) => {
@@ -529,7 +542,10 @@ function setCubeFaceColor(materials: THREE.Material[], index: number, i1: number
 }
 
 function setAllPyraColors(): void {
-  isWireframe = false;
+  isPyraColors = true;
+  if (isWireframe || isShowNumbers) {
+    return;
+  }
   isShowNumbers = false;
   const initialMaterials: THREE.Material[] = [];
   for (let i = 0; i < 12; i++) {
@@ -1044,13 +1060,13 @@ function morphCombined(newState: number): Promise<void> {
     {from: 0, to: 1, ops: [() => scaleTo2x2(true)]},
     {from: 1, to: 0, ops: [() => scaleTo2x2(false)]},
     {from: 1, to: 3, ops: [() => morphToPyra(true), () => wrapInPromise(() => setAllPyraColors())]},
-    {from: 3, to: 1, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeFaces())]},
+    {from: 3, to: 1, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeColors())]},
     {from: 3, to: 2, ops: [() => scaleTo2x2(false)]},
     {from: 2, to: 3, ops: [() => scaleTo2x2(true)]},
     {from: 0, to: 3, ops: [() => scaleTo2x2(true), () => morphToPyra(true), () => wrapInPromise(() => setAllPyraColors())]}, // 0-1, 1-2
-    {from: 3, to: 0, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeFaces()), () => scaleTo2x2(false)]}, // 2-1, 1-0
+    {from: 3, to: 0, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeColors()), () => scaleTo2x2(false)]}, // 2-1, 1-0
     {from: 0, to: 2, ops: [() => morphToPyra(true), () => wrapInPromise(() => setAllPyraColors())]},
-    {from: 2, to: 0, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeFaces())]}
+    {from: 2, to: 0, ops: [() => morphToPyra(false), () => wrapInPromise(() => setAllCubeColors())]}
   ];
 
   return new Promise((resolve) => {
@@ -1166,15 +1182,18 @@ function setupGui(): GUI {
   shapeFolder.add({ fun: () => morphCombined(2) },'fun').name('Poke-like [F5]');
 
   const looksFolder = gui.addFolder('View')
-  looksFolder.add({ fun: () => setAllCubeColors() },'fun').name('Cube-Colors [F5]');
-  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyramid-Colors [F5]');
-  looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]]');
-  looksFolder.add({ fun: () => toggleNumbers() },'fun').name('Numbers [n]]');
   looksFolder.add({ fun: () => toggleViewRight() },'fun').name('Left/Right [1]]');
-  looksFolder.add({ fun: () => toggleViewBack() },'fun').name('Front/Back [2]]');
+  looksFolder.add({ fun: () => toggleViewBack() },'fun').name('Backside [2]]');
+  looksFolder.add({ fun: () => toggleViewUnder() },'fun').name('Underside [2]]');
   looksFolder.add({ fun: () => toggleTumble() },'fun').name('Tumble [t]]');
+  looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]]');
+  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyramid-Colors [F5]');
+  looksFolder.add({ fun: () => setAllCubeColors() },'fun').name('Cube-Colors [F5]');
 
   const rotFolder = gui.addFolder('Rotations')
+  rotFolder.add({ fun: () => undoOperation() },'fun').name('Undo [^z,9]');
+  rotFolder.add({ fun: () => shuffle() },'fun').name('Shuffle [F9]');
+  rotFolder.add({ fun: () => resetMain() },'fun').name('Reset [F10]');
   rotFolder.add({ fun: () => rotateByButton('l') },'fun').name('Left [l]');
   rotFolder.add({ fun: () => rotateByButton('m') },'fun').name('Middle [m]');
   rotFolder.add({ fun: () => rotateByButton('r') },'fun').name('Right [r]');
@@ -1187,15 +1206,12 @@ function setupGui(): GUI {
   rotFolder.add({ fun: () => rotateByButton('x') },'fun').name('X-axis [x]');
   rotFolder.add({ fun: () => rotateByButton('y') },'fun').name('Y-axis [y]');
   rotFolder.add({ fun: () => rotateByButton('z') },'fun').name('Z-axis [z]');
-  rotFolder.add({ fun: () => undoOperation() },'fun').name('Undo [^z,9]');
-  rotFolder.add({ fun: () => shuffle() },'fun').name('Shuffle [F9]');
-  rotFolder.add({ fun: () => resetMain() },'fun').name('Reset [F10]');
   
   const dbgFolder = gui.addFolder('Debug')
-  dbgFolder.add({ fun: () => toggleShowOneCube() },'fun').name('Only 1 [l]');
-  dbgFolder.add({ fun: () => addNormals() },'fun').name('Normals On [l]');
-  dbgFolder.add({ fun: () => removeNormals() },'fun').name('Normals Off [l]');
-  
+  looksFolder.add({ fun: () => toggleNumbers() },'fun').name('Show Numbers [n]]');
+  dbgFolder.add({ fun: () => toggleShowOneCube() },'fun').name('Only 1 [5]');
+  dbgFolder.add({ fun: () => toggleNormals() },'fun').name('Show Normals [4]');
+  dbgFolder.add({ fun: () => toggleAxes() },'fun').name('Show Axes [a]');  
   return gui;
 }
 
@@ -1208,14 +1224,15 @@ function rotateByButton(key: string): void {
 
 function resetView(): void {
   isViewRight = true;
-  isViewBack = false;
+  viewUp = 1;
   tumble = false;
   setViewRotation(baseGroup); 
 }
 
 function setViewRotation(group: THREE.Group): void {
-  const angles = [ {x: 30, y: 30}, {x: 30, y: -30}, {x: 130, y: 30}, {x: 130, y: -30} ];
-  let pos = (isViewRight ? 1 : 0) + 2 * (isViewBack ? 1 : 0);
+  const angles = [ {x: -40, y: 30}, {x: -40, y: -30}, {x: 30, y: 30}, {x: 30, y: -30}, 
+    {x: 130, y: 30}, {x: 130, y: -30} ];
+  let pos = (isViewRight ? 1 : 0) + 2 * viewUp;
   // console.log("pos: "+ pos);
   group.rotation.set(Math.PI / 180 * angles[pos].x, Math.PI / 180 * angles[pos].y, 0);
   group.updateMatrix();
@@ -1242,6 +1259,34 @@ function setBasegroupRotation(): void {
       numAnims--;
     }
   });
+}
+
+function toggleViewBack() {
+  viewUp = viewUp === 1 ? 2 : 1;
+  setBasegroupRotation();
+}
+
+function toggleViewUnder() {
+  viewUp = viewUp === 1 ? 0 : 1;
+  setBasegroupRotation();
+}
+
+function toggleViewRight() {
+  isViewRight = !isViewRight;
+  setBasegroupRotation();
+}
+
+function toggleTumble() {
+  tumble = !tumble;
+}
+
+function toggleNormals(): void {
+  if (isNormals) {
+    removeNormals();
+  } else {
+    addNormals();
+  }
+  isNormals = !isNormals;
 }
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -1287,14 +1332,14 @@ function onKeyDown(event: KeyboardEvent): void {
     case "2":
       toggleViewBack();
       break;
+    case "3":
+      toggleViewUnder();
+      break;
+    case "4":
+      toggleNormals();
+      break;
     case "5":
       toggleShowOneCube();
-      break;
-    case "6":
-      addNormals();
-      break;
-    case "7":
-      removeNormals();
       break;
     case "9":
       undoOperation();
@@ -1432,22 +1477,36 @@ document.addEventListener('keyup', function(event) {
 
 window.addEventListener("DOMContentLoaded", init);
 
-window.addEventListener('resize', function() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+// Function to calculate the distance required to fit the object
+function calculateDistanceToFitObject(camera: THREE.PerspectiveCamera, objectWidth: number, objectHeight: number): number {
+  const aspect = window.innerWidth / window.innerHeight;
+  const fov = camera.fov * (Math.PI / 180); // Convert vertical FOV to radians
+
+  const height = objectHeight / 2;
+  const width = objectWidth / 2;
+
+  // Calculate distance required to fit the object height-wise
+  const distanceHeight = height / Math.tan(fov / 2);
+
+  // Calculate distance required to fit the object width-wise based on aspect ratio
+  const distanceWidth = width / (Math.tan(fov / 2) * aspect);
+
+  // The camera should be at the maximum of these distances to fit both width and height
+  return Math.max(distanceHeight, distanceWidth);
+}
+
+// Function to update the camera's position based on the object size and window dimensions
+function updateCamera(camera: THREE.PerspectiveCamera, objectWidth: number, objectHeight: number) {
+  const aspect = window.innerWidth / window.innerHeight;
+  const newDistance = calculateDistanceToFitObject(camera, objectWidth, objectHeight);
+
+  camera.aspect = aspect;
+  camera.position.z = newDistance;
+  camera.updateProjectionMatrix();
+}
+
+// Resize event handler
+window.addEventListener('resize', () => {
+  updateCamera(camera, objectWidth, objectHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
-function toggleViewBack() {
-  isViewBack = !isViewBack;
-  setBasegroupRotation();
-}
-
-function toggleViewRight() {
-  isViewRight = !isViewRight;
-  setBasegroupRotation();
-}
-
-function toggleTumble() {
-  tumble = !tumble;
-}
