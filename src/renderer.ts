@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import {TrackballControls} from "three/examples/jsm/controls/TrackballControls";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
 import {Font, FontLoader} from 'three/examples/jsm/loaders/FontLoader';
 import gsap from "gsap";
 import { GUI } from 'dat.gui';
 import { BoxGeometryEnh } from './BoxGeometryEnh';
-import { CustomControls } from './CustomControls';
+// import { CustomControls } from './CustomControls';
 
 declare global {
   interface Window {
@@ -17,6 +18,7 @@ declare global {
 
 let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
+let controls: TrackballControls ;
 let renderer: THREE.WebGLRenderer;
 let gui: GUI;
 let baseGroup: THREE.Group;
@@ -80,7 +82,6 @@ function init(): void {
   renderer.setClearColor(0xb0c4de); // Light blue-gray color in hexadecimal
   
   baseGroup = new THREE.Group();
-  resetView();
   scene.add(baseGroup);
 
   createMain();
@@ -91,7 +92,13 @@ function init(): void {
 
   gui = setupGui();
 
-  const controls = new CustomControls(baseGroup, renderer.domElement, document);
+  // Initial camera update
+  updateCamera(camera, objectWidth, objectHeight);
+
+  controls = new TrackballControls(camera, renderer.domElement);
+  controls.keys = [ 'KeyA', 'KeyW', 'KeyQ' ];
+  resetView();
+  controls.update();
 
   const ambientLight = new THREE.AmbientLight(0x333333);
   scene.add(ambientLight);
@@ -103,12 +110,7 @@ function init(): void {
   // createDirLight(0, 0, -2);
 
   // camera.position.set(0, 0, 10);
-  // camera.lookAt(0, 0, 0);
-
-// Initial camera update
-  updateCamera(camera, objectWidth, objectHeight);
-
-  controls.update();
+  camera.lookAt(0, 0, 0);
 
   animate();
 }
@@ -683,6 +685,7 @@ function animate(): void {
     baseGroup.rotation.z += 0.01;
     baseGroup.updateMatrix();
   }
+  controls.update();
   renderer.render(scene, camera);
 }
 
@@ -1181,6 +1184,7 @@ function resetView(): void {
   viewUp = 1;
   tumble = false;
   setViewRotation(baseGroup); 
+  controls.reset();
 }
 
 function setViewRotation(group: THREE.Group): void {
@@ -1244,7 +1248,7 @@ function toggleNormals(): void {
 }
 
 function setupGui(): GUI {
-  const gui = new GUI({closed: false, width: 120});
+  const gui = new GUI({closed: false, width: 100});
   gui.close();
   // gui.add( document, 'title' ).name('');
   gui.add({ fun: () => toggleRotationInfos() },'fun').name('Help [F1]');
@@ -1258,9 +1262,10 @@ function setupGui(): GUI {
   looksFolder.add({ fun: () => toggleViewRight() },'fun').name('Left/Right [1]');
   looksFolder.add({ fun: () => toggleViewBack() },'fun').name('Backside [2]');
   looksFolder.add({ fun: () => toggleViewUnder() },'fun').name('Underside [3]');
+  looksFolder.add({ fun: () => resetView() },'fun').name('Reset [0]');
   looksFolder.add({ fun: () => toggleTumble() },'fun').name('Tumble [t]');
   looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]');
-  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyramid-Colors [F6]');
+  looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyra-Colors [F6]');
   looksFolder.add({ fun: () => setAllCubeColors() },'fun').name('Cube-Colors [F7]');
 
   const rotFolder = gui.addFolder('Rotations')
@@ -1281,9 +1286,9 @@ function setupGui(): GUI {
   rotFolder.add({ fun: () => rotateByButton('z') },'fun').name('Z-axis [z]');
   
   const dbgFolder = gui.addFolder('Debug')
-  dbgFolder.add({ fun: () => toggleAxes() },'fun').name('Show Axes [a]');  
-  dbgFolder.add({ fun: () => toggleNumbers() },'fun').name('Show Numbers [n]');
-  dbgFolder.add({ fun: () => toggleNormals() },'fun').name('Show Normals [4]');
+  dbgFolder.add({ fun: () => toggleAxes() },'fun').name('Axes [a]');  
+  dbgFolder.add({ fun: () => toggleNumbers() },'fun').name('Numbers [n]');
+  dbgFolder.add({ fun: () => toggleNormals() },'fun').name('Normals [4]');
   return gui;
 }
 
@@ -1507,4 +1512,5 @@ function updateCamera(camera: THREE.PerspectiveCamera, objectWidth: number, obje
 window.addEventListener('resize', () => {
   updateCamera(camera, objectWidth, objectHeight);
   renderer.setSize(window.innerWidth, window.innerHeight);
+  controls.handleResize();
 });
