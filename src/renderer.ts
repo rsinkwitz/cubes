@@ -53,6 +53,10 @@ let infoGroups: THREE.Group[] = [];
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
 
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let isMouseDown = false;
+
 const basicMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({color: 0xff0000, roughness: roughness}), // right  red     0
   new THREE.MeshStandardMaterial({color: 0xFFB700, roughness: roughness}), // left   orange  1
@@ -107,12 +111,60 @@ function init(): void {
   createDirLight(5, 0, 2);
   createDirLight(0, -5, 2);
   createDirLight(0, 5, 2);
-  // createDirLight(0, 0, -2);
+  createDirLight(0, 0, -2);
 
   // camera.position.set(0, 0, 10);
   camera.lookAt(0, 0, 0);
 
   animate();
+}
+
+function animate(): void {
+  requestAnimationFrame(animate);
+  if (tumble) {
+    baseGroup.rotation.x += 0.01;
+    baseGroup.rotation.y += 0.01;
+    baseGroup.rotation.z += 0.01;
+    baseGroup.updateMatrix();
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function onPointerMove( event: MouseEvent) {
+}
+
+function onPointerDown( event: MouseEvent) {
+  isMouseDown = true;
+  // update the picking ray with the camera and pointer position
+	pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+	pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+  raycaster.setFromCamera( pointer, camera );
+  console.log("pointer down " + pointer.x + " " + pointer.y);
+
+  // calculate objects intersecting the picking ray
+  const intersects = raycaster.intersectObjects( baseGroup.children );
+
+  for ( let i = 0; i < intersects.length; i ++ ) {
+    const obj = intersects[i].object;
+    if (obj instanceof THREE.Mesh) {
+      if (obj.name === "box") {
+        // if object parent is not null
+        if (obj.parent !== null) {
+        console.log("box clicked " + obj.name + " " + obj.parent.position.x + " " + obj.parent.position.y + " " + obj.parent.position.z);
+        }
+        const iom = obj.material;
+        for (let j = 0; j < iom.length; j++) {
+          iom[j] = grayMaterial;
+        }
+        break;
+      }
+    }
+  }  
+}
+
+function onPointerUp( event: MouseEvent) {
+  isMouseDown = false;
 }
 
 function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight {
@@ -675,18 +727,6 @@ function createRotationInfos(visible: boolean, inverse: boolean): void {
       createRotationInfoGroup(font, 'D', inverse, 0, -1, 0, 90, new THREE.Vector3(1, 0, 0));
     });
   }
-}
-
-function animate(): void {
-  requestAnimationFrame(animate);
-  if (tumble) {
-    baseGroup.rotation.x += 0.01;
-    baseGroup.rotation.y += 0.01;
-    baseGroup.rotation.z += 0.01;
-    baseGroup.updateMatrix();
-  }
-  controls.update();
-  renderer.render(scene, camera);
 }
 
 function getRotationMatrix(axis: string, degrees: number): THREE.Matrix4 {
@@ -1507,6 +1547,10 @@ function updateCamera(camera: THREE.PerspectiveCamera, objectWidth: number, obje
   camera.position.z = newDistance;
   camera.updateProjectionMatrix();
 }
+
+window.addEventListener( 'pointermove', onPointerMove );
+window.addEventListener( 'pointerdown', onPointerDown );
+window.addEventListener( 'pointerup', onPointerUp );
 
 // Resize event handler
 window.addEventListener('resize', () => {
