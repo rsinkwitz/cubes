@@ -56,6 +56,10 @@ let opsTodo: string[] = []; // the list of operations to perform automatically
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let isMouseDown = false;
+let piecePicked: THREE.Group | null = null; // the piece currently picked for rotation
+let lastPickedX: number = 0;
+let lastPickedY: number = 0;
+let dragDirection: number = 99; // degrees / 45° or 99 if not set
 
 const basicMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({color: 0xff0000, roughness: roughness}), // right  red     0
@@ -131,7 +135,21 @@ function animate(): void {
   renderer.render(scene, camera);
 }
 
+function distance(x1: number, y1: number, x2: number, y2: number): number {
+  return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+}
+
 function onPointerMove( event: MouseEvent) {
+  if (isMouseDown) {
+    pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+    pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+    if (dragDirection === 99 && distance(pointer.x, pointer.y, lastPickedX, lastPickedY) > 0.1) {
+      const dx = pointer.x - lastPickedX;
+      const dy = pointer.y - lastPickedY;
+      dragDirection = Math.round(Math.atan2(dy, dx) * 4 / Math.PI);
+      console.log("dragDirection: " + dragDirection);
+    }
+  }
 }
 
 function onPointerDown( event: MouseEvent) {
@@ -140,7 +158,9 @@ function onPointerDown( event: MouseEvent) {
 	pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
 	pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
   raycaster.setFromCamera( pointer, camera );
-  console.log("pointer down " + pointer.x + " " + pointer.y);
+  // console.log("pointer down " + pointer.x + " " + pointer.y);
+  lastPickedX = pointer.x;
+  lastPickedY = pointer.y;
 
   // calculate objects intersecting the picking ray
   const intersects = raycaster.intersectObjects( baseGroup.children );
@@ -151,12 +171,14 @@ function onPointerDown( event: MouseEvent) {
       if (obj.name === "box") {
         // if object parent is not null
         if (obj.parent !== null) {
-        console.log("box clicked " + obj.name + " " + obj.parent.position.x + " " + obj.parent.position.y + " " + obj.parent.position.z);
+          const fi = intersects[i].faceIndex;
+          console.log("box clicked " + obj.name + " fi=" + fi + " (" + obj.parent.position.x + " " + obj.parent.position.y + " " + obj.parent.position.z + ")");
+          piecePicked = obj.parent as THREE.Group;
         }
-        const iom = obj.material;
-        for (let j = 0; j < iom.length; j++) {
-          iom[j] = grayMaterial;
-        }
+        // const iom = obj.material;
+        // for (let j = 0; j < iom.length; j++) {
+        //   iom[j] = grayMaterial;
+        // }
         break;
       }
     }
@@ -165,6 +187,7 @@ function onPointerDown( event: MouseEvent) {
 
 function onPointerUp( event: MouseEvent) {
   isMouseDown = false;
+  dragDirection = 99;
 }
 
 function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight {
