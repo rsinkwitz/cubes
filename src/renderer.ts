@@ -53,10 +53,11 @@ let infoGroups: THREE.Group[] = [];
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
 
+let mouseDown = false;
+let selectedCube: THREE.Group | null = null;
+let selectedFace: THREE.Face | null = null;
+let initialMousePosition = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-let isMouseDown = false;
-let piecePicked: THREE.Group | null = null; // the piece currently picked for rotation
 let lastPickedX: number = 0;
 let lastPickedY: number = 0;
 let dragDirection: number = 99; // degrees / 45° or 99 if not set
@@ -139,28 +140,23 @@ function distance(x1: number, y1: number, x2: number, y2: number): number {
   return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
-function onPointerMove( event: MouseEvent) {
-  if (isMouseDown) {
-    pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-    pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
-    if (dragDirection === 99 && distance(pointer.x, pointer.y, lastPickedX, lastPickedY) > 0.1) {
-      const dx = pointer.x - lastPickedX;
-      const dy = pointer.y - lastPickedY;
-      dragDirection = Math.round(Math.atan2(dy, dx) * 4 / Math.PI);
-      console.log("dragDirection: " + dragDirection);
-    }
-  }
-}
-
 function onPointerDown( event: MouseEvent) {
-  isMouseDown = true;
-  // update the picking ray with the camera and pointer position
-	pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-	pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
-  raycaster.setFromCamera( pointer, camera );
-  // console.log("pointer down " + pointer.x + " " + pointer.y);
-  lastPickedX = pointer.x;
-  lastPickedY = pointer.y;
+  mouseDown = true;
+
+  // Normalize mouse position to -1 to 1 range
+  const mouse = new THREE.Vector2(
+    (event.clientX / window.innerWidth) * 2 - 1,
+    -(event.clientY / window.innerHeight) * 2 + 1
+  );
+
+  initialMousePosition.copy(mouse);
+
+  // Update the picking ray with the camera and mouse position
+  raycaster.setFromCamera(mouse, camera);
+
+  console.log("pointer down " + mouse.x + " " + mouse.y);
+  lastPickedX = mouse.x;
+  lastPickedY = mouse.y;
 
   // calculate objects intersecting the picking ray
   const intersects = raycaster.intersectObjects( baseGroup.children );
@@ -173,7 +169,8 @@ function onPointerDown( event: MouseEvent) {
         if (obj.parent !== null) {
           const fi = intersects[i].faceIndex;
           console.log("box clicked " + obj.name + " fi=" + fi + " (" + obj.parent.position.x + " " + obj.parent.position.y + " " + obj.parent.position.z + ")");
-          piecePicked = obj.parent as THREE.Group;
+          selectedCube = obj.parent as THREE.Group;
+          selectedFace = intersects[i].face as THREE.Face;
         }
         // const iom = obj.material;
         // for (let j = 0; j < iom.length; j++) {
@@ -185,8 +182,48 @@ function onPointerDown( event: MouseEvent) {
   }  
 }
 
+function onPointerMove( event: MouseEvent) {
+  if (!mouseDown || !selectedCube) return;
+
+  const mouse = new THREE.Vector2(
+    (event.clientX / window.innerWidth) * 2 - 1,
+    -(event.clientY / window.innerHeight) * 2 + 1
+  );
+
+  if (dragDirection === 99 && distance(mouse.x, mouse.y, lastPickedX, lastPickedY) > 0.1) {
+    const dx = mouse.x - lastPickedX;
+    const dy = mouse.y - lastPickedY;
+    dragDirection = Math.round(Math.atan2(dy, dx) * 4 / Math.PI);
+    console.log("dragDirection: " + dragDirection);
+  }
+
+  const mouseDirection = mouse.clone().sub(initialMousePosition).normalize();
+  // console.log("mouseDirection: " + mouseDirection.x + " " + mouseDirection.y);
+
+  const layer = determineLayer(selectedCube, selectedFace, mouseDirection);
+  const rotationDirection = determineRotationDirection(selectedFace, mouseDirection);
+
+  rotateLayer(layer, rotationDirection);
+
+  initialMousePosition.copy(mouse);
+}
+
+function determineLayer(selectedCube: THREE.Group, selectedFace: THREE.Face | null, mouseDirection: THREE.Vector2): number {
+  return 0;
+}
+
+function determineRotationDirection(selectedFace: THREE.Face | null, mouseDirection: THREE.Vector2): number {
+  return 0;
+} 
+
+function rotateLayer(layer: number, rotationDirection: number): void {
+  return;
+}
+
 function onPointerUp( event: MouseEvent) {
-  isMouseDown = false;
+  mouseDown = false;
+  selectedCube = null;
+  selectedFace = null;
   dragDirection = 99;
 }
 
@@ -1472,9 +1509,6 @@ function onKeyDown(event: KeyboardEvent): void {
     case "ArrowUp":
       // cube.rotation.x += 0.1;
       // cube.updateMatrix();
-      // testIndex = Math.min(testIndex + 1, 26);
-      // isShowOneCube=false;
-      // toggleShowOneCube();
       {
         let numOptions = Object.keys(ColorMask).length;
         testIndex = Math.min(testIndex + 1, numOptions - 1);
@@ -1486,9 +1520,6 @@ function onKeyDown(event: KeyboardEvent): void {
     case "ArrowDown":
       // cube.rotation.x -= 0.1;
       // cube.updateMatrix();
-      // testIndex = Math.max(testIndex - 1, 0);
-      // isShowOneCube=false;
-      // toggleShowOneCube();
       {
         let numOptions = Object.keys(ColorMask).length;
         testIndex = Math.max(testIndex - 1, 0);
@@ -1498,12 +1529,18 @@ function onKeyDown(event: KeyboardEvent): void {
       }
       break;
     case "ArrowLeft":
-      baseGroup.rotation.y += 0.1;
-      baseGroup.updateMatrix();
+      // baseGroup.rotation.y += 0.1;
+      // baseGroup.updateMatrix();
+      testIndex = Math.max(testIndex - 1, 0);
+      isShowOneCube=false;
+      toggleShowOneCube();
       break;
     case "ArrowRight":
-      baseGroup.rotation.y -= 0.1;
-      baseGroup.updateMatrix();
+      // baseGroup.rotation.y -= 0.1;
+      // baseGroup.updateMatrix();
+      testIndex = Math.min(testIndex + 1, 26);
+      isShowOneCube=false;
+      toggleShowOneCube();
       break;
     case "k":
       baseGroup.rotation.z += 0.1;
@@ -1571,8 +1608,8 @@ function updateCamera(camera: THREE.PerspectiveCamera, objectWidth: number, obje
   camera.updateProjectionMatrix();
 }
 
-window.addEventListener( 'pointermove', onPointerMove );
 window.addEventListener( 'pointerdown', onPointerDown );
+window.addEventListener( 'pointermove', onPointerMove );
 window.addEventListener( 'pointerup', onPointerUp );
 
 // Resize event handler
