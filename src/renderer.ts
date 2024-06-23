@@ -53,15 +53,6 @@ let infoGroups: THREE.Group[] = [];
 let opsHistory: string[] = []; // the list of operations performed
 let opsTodo: string[] = []; // the list of operations to perform automatically
 
-let mouseDown = false;
-let selectedCube: THREE.Group | null = null;
-let selectedFace: THREE.Face | null = null;
-let initialMousePosition = new THREE.Vector2();
-const raycaster = new THREE.Raycaster();
-let lastPickedX: number = 0;
-let lastPickedY: number = 0;
-let dragDirection: number = 99; // degrees / 45° or 99 if not set
-
 const basicMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({color: 0xff0000, roughness: roughness}), // right  red     0
   new THREE.MeshStandardMaterial({color: 0xFFB700, roughness: roughness}), // left   orange  1
@@ -104,6 +95,10 @@ function init(): void {
   // Initial camera update
   updateCamera(camera, objectWidth, objectHeight);
 
+  renderer.domElement.addEventListener( 'pointerdown', onPointerDown );
+  renderer.domElement.addEventListener( 'pointermove', onPointerMove );
+  renderer.domElement.addEventListener( 'pointerup', onPointerUp );
+  
   controls = new TrackballControls(camera, renderer.domElement);
   controls.keys = [ 'KeyA', 'KeyW', 'KeyQ' ];
   resetView();
@@ -136,41 +131,62 @@ function animate(): void {
   renderer.render(scene, camera);
 }
 
-function distance(x1: number, y1: number, x2: number, y2: number): number {
-  return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+let mouseDown = false;
+let initialPoint: THREE.Vector3 | null = null;
+let isPoint = new THREE.Vector3();
+let selCube: THREE.Group | null = null;
+let selFace: THREE.Face | null = null;
+let selRot: string = "";
+
+function majorAxis(vector: THREE.Vector3): string {
+  const x = Math.abs(vector.x);
+  const y = Math.abs(vector.y);
+  const z = Math.abs(vector.z);
+  if (x > y && x > z) {
+    return (vector.x > 0 ? "":"-") + "x";
+  } else if (y > x && y > z) {
+    return (vector.y > 0 ? "":"-") + "y";
+  } else {
+    return (vector.z > 0 ? "":"-") + "z";
+  }
 }
 
-function onPointerDown( event: MouseEvent) {
-  mouseDown = true;
-
-  // Normalize mouse position to -1 to 1 range
+function onDrag(event: MouseEvent) {
   const mouse = new THREE.Vector2(
     (event.clientX / window.innerWidth) * 2 - 1,
     -(event.clientY / window.innerHeight) * 2 + 1
   );
-
-  initialMousePosition.copy(mouse);
-
-  // Update the picking ray with the camera and mouse position
+  const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
-
-  console.log("pointer down " + mouse.x + " " + mouse.y);
-  lastPickedX = mouse.x;
-  lastPickedY = mouse.y;
+  // console.log("mouse " + mouse.x + " " + mouse.y);
 
   // calculate objects intersecting the picking ray
   const intersects = raycaster.intersectObjects( baseGroup.children );
-
   for ( let i = 0; i < intersects.length; i ++ ) {
-    const obj = intersects[i].object;
+    const isInfo = intersects[i];
+    const obj = isInfo.object;
     if (obj instanceof THREE.Mesh) {
       if (obj.name === "box") {
         // if object parent is not null
         if (obj.parent !== null) {
-          const fi = intersects[i].faceIndex;
-          console.log("box clicked " + obj.name + " fi=" + fi + " (" + obj.parent.position.x + " " + obj.parent.position.y + " " + obj.parent.position.z + ")");
-          selectedCube = obj.parent as THREE.Group;
-          selectedFace = intersects[i].face as THREE.Face;
+          isMovingObject = true;
+          controls.enabled = false;
+          selCube = obj.parent as THREE.Group;
+          console.log("box clicked " + obj.name + " fi=" + isInfo.faceIndex + " (" + selCube.position.x + " " + selCube.position.y + " " + selCube.position.z + ")");          
+          selFace = isInfo.face as THREE.Face;
+          isPoint = isInfo.point;
+          // isPoint translated to local coordinates of baseGroup
+          let modelViewInverse = baseGroup.matrixWorld.clone().invert();
+          isPoint.applyMatrix4(modelViewInverse);
+          if (initialPoint !== null) {
+            const diff = isPoint.clone().sub(initialPoint);
+            let dragDir = majorAxis(diff);
+            const groupNormal = selFace.normal.clone().applyMatrix4(selCube.matrix).normalize();
+            let faceDir = majorAxis(groupNormal);
+            let rot = getRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, faceDir, dragDir);
+            console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
+            selRot = rot;
+          }
         }
         // const iom = obj.material;
         // for (let j = 0; j < iom.length; j++) {
@@ -182,49 +198,33 @@ function onPointerDown( event: MouseEvent) {
   }  
 }
 
+let isMovingObject = false;
+
+function onPointerDown( event: MouseEvent) {
+  mouseDown = true;
+  onDrag(event);
+  initialPoint = isPoint.clone();
+}
+
 function onPointerMove( event: MouseEvent) {
-  if (!mouseDown || !selectedCube) return;
-
-  const mouse = new THREE.Vector2(
-    (event.clientX / window.innerWidth) * 2 - 1,
-    -(event.clientY / window.innerHeight) * 2 + 1
-  );
-
-  if (dragDirection === 99 && distance(mouse.x, mouse.y, lastPickedX, lastPickedY) > 0.1) {
-    const dx = mouse.x - lastPickedX;
-    const dy = mouse.y - lastPickedY;
-    dragDirection = Math.round(Math.atan2(dy, dx) * 4 / Math.PI);
-    console.log("dragDirection: " + dragDirection);
+  if (isMovingObject) {
+    onDrag(event);
   }
-
-  const mouseDirection = mouse.clone().sub(initialMousePosition).normalize();
-  // console.log("mouseDirection: " + mouseDirection.x + " " + mouseDirection.y);
-
-  const layer = determineLayer(selectedCube, selectedFace, mouseDirection);
-  const rotationDirection = determineRotationDirection(selectedFace, mouseDirection);
-
-  rotateLayer(layer, rotationDirection);
-
-  initialMousePosition.copy(mouse);
-}
-
-function determineLayer(selectedCube: THREE.Group, selectedFace: THREE.Face | null, mouseDirection: THREE.Vector2): number {
-  return 0;
-}
-
-function determineRotationDirection(selectedFace: THREE.Face | null, mouseDirection: THREE.Vector2): number {
-  return 0;
-} 
-
-function rotateLayer(layer: number, rotationDirection: number): void {
-  return;
 }
 
 function onPointerUp( event: MouseEvent) {
+  if (!mouseDown) return;
+  if (isMovingObject) {
+    isMovingObject = false;
+    controls.enabled = true;
+    if (selRot !== "") {
+      rotate(selRot);
+    }
+  }
   mouseDown = false;
-  selectedCube = null;
-  selectedFace = null;
-  dragDirection = 99;
+  initialPoint = null;
+  selCube = null;
+  selFace = null;
 }
 
 function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight {
@@ -319,6 +319,98 @@ function toggleNumbers(): void {
   isShowNumbers = !isShowNumbers;
   setAllCubeFaces();
 }
+
+interface CubeRotationBySelection {
+  px: number;
+  py: number;
+  pz: number;
+  normalMajor: string;
+  dragMajor: string;
+  rot: string;
+}
+
+const selectionToRotation: CubeRotationBySelection[] = [
+  // left side, up direction
+  { px: -1, py: 99, pz: -1, normalMajor: "-x", dragMajor: "y", rot: "B" },
+  { px: -1, py: 99, pz:  0, normalMajor: "-x", dragMajor: "y", rot: "s" },
+  { px: -1, py: 99, pz:  1, normalMajor: "-x", dragMajor: "y", rot: "f" },
+
+  // right side, up direction
+  { px: 1, py: 99, pz: -1, normalMajor: "x", dragMajor: "y", rot: "b" },
+  { px: 1, py: 99, pz:  0, normalMajor: "x", dragMajor: "y", rot: "S" },
+  { px: 1, py: 99, pz:  1, normalMajor: "x", dragMajor: "y", rot: "F" },
+
+  // front side, up direction
+  { px: -1, py: 99, pz: 1, normalMajor: "z", dragMajor: "y", rot: "L" },
+  { px:  0, py: 99, pz: 1, normalMajor: "z", dragMajor: "y", rot: "M" },
+  { px:  1, py: 99, pz: 1, normalMajor: "z", dragMajor: "y", rot: "r" },
+
+  // back side, up direction
+  { px: -1, py: 99, pz: -1, normalMajor: "-z", dragMajor: "y", rot: "l" },
+  { px:  0, py: 99, pz: -1, normalMajor: "-z", dragMajor: "y", rot: "m" },
+  { px:  1, py: 99, pz: -1, normalMajor: "-z", dragMajor: "y", rot: "R" },
+
+  // top side, back-to-front direction
+  { px: -1, py:  1, pz: 99, normalMajor: "y", dragMajor: "z", rot: "l" },
+  { px:  0, py:  1, pz: 99, normalMajor: "y", dragMajor: "z", rot: "m" },
+  { px:  1, py:  1, pz: 99, normalMajor: "y", dragMajor: "z", rot: "R" },
+
+  // underside, back-to-front direction
+  { px: -1, py: -1, pz: 99, normalMajor: "-y", dragMajor: "z", rot: "L" },
+  { px:  0, py: -1, pz: 99, normalMajor: "-y", dragMajor: "z", rot: "M" },
+  { px:  1, py: -1, pz: 99, normalMajor: "-y", dragMajor: "z", rot: "r" },
+  
+  // left side, back-to-front direction
+  { px: -1, py: -1, pz: 99, normalMajor: "-x", dragMajor: "z", rot: "d" },
+  { px: -1, py:  0, pz: 99, normalMajor: "-x", dragMajor: "z", rot: "e" },
+  { px: -1, py:  1, pz: 99, normalMajor: "-x", dragMajor: "z", rot: "U" },
+
+  // right side, back-to-front direction
+  { px: 1, py: -1, pz: 99, normalMajor: "x", dragMajor: "z", rot: "D" },
+  { px: 1, py:  0, pz: 99, normalMajor: "x", dragMajor: "z", rot: "E" },
+  { px: 1, py:  1, pz: 99, normalMajor: "x", dragMajor: "z", rot: "u" },
+
+  // front side, left-to-right direction
+  { px: 99, py: -1, pz: 1, normalMajor: "z", dragMajor: "x", rot: "d" },
+  { px: 99, py:  0, pz: 1, normalMajor: "z", dragMajor: "x", rot: "e" },
+  { px: 99, py:  1, pz: 1, normalMajor: "z", dragMajor: "x", rot: "U" },
+
+  // back side, left-to-right direction
+  { px: 99, py: -1, pz: -1, normalMajor: "-z", dragMajor: "x", rot: "D" },
+  { px: 99, py:  0, pz: -1, normalMajor: "-z", dragMajor: "x", rot: "E" },
+  { px: 99, py:  1, pz: -1, normalMajor: "-z", dragMajor: "x", rot: "u" },
+
+  // top side, left-to-right direction
+  { px: 99, py:  1, pz: -1, normalMajor: "y", dragMajor: "x", rot: "B" },
+  { px: 99, py:  1, pz:  0, normalMajor: "y", dragMajor: "x", rot: "s" },
+  { px: 99, py:  1, pz:  1, normalMajor: "y", dragMajor: "x", rot: "f" },
+
+  // underside, left-to-right direction
+  { px: 99, py:  -1, pz: -1, normalMajor: "-y", dragMajor: "x", rot: "b" },
+  { px: 99, py:  -1, pz:  0, normalMajor: "-y", dragMajor: "x", rot: "S" },
+  { px: 99, py:  -1, pz:  1, normalMajor: "-y", dragMajor: "x", rot: "F" },
+  
+];
+
+function getRotationBySelection(x: number, y: number, z: number, normalMajor: string, dragMajor: string): string {
+  const dragReverse = dragMajor[0] === '-';
+  const dragMajorAbs = dragReverse ? dragMajor.substring(1) : dragMajor;
+  for (let i = 0; i < selectionToRotation.length; i++) {
+    const sel = selectionToRotation[i];
+    if ((sel.px === Math.round(x) || sel.px === 99) && (sel.py === Math.round(y) || sel.py === 99) && (sel.pz === Math.round(z) || sel.pz === 99)
+      && sel.normalMajor === normalMajor && sel.dragMajor === dragMajorAbs) {
+        let rot = sel.rot;
+        const rotReverse = (rot === rot.toUpperCase());
+        rot = rot.toLowerCase();
+        if (dragReverse != rotReverse) {
+          rot = rot.toUpperCase();
+        }
+      return rot;
+    }
+  }
+  return "";
+}
+
 
 // this list describes for a cube what position indexes are used at each corner to draw the lines, to allow for morphing.
 // each row denotes a corner (x + x*2 + z*4), the values are the indexes in the position array (of BoxGeometry)
@@ -1607,10 +1699,6 @@ function updateCamera(camera: THREE.PerspectiveCamera, objectWidth: number, obje
   camera.position.z = newDistance;
   camera.updateProjectionMatrix();
 }
-
-window.addEventListener( 'pointerdown', onPointerDown );
-window.addEventListener( 'pointermove', onPointerMove );
-window.addEventListener( 'pointerup', onPointerUp );
 
 // Resize event handler
 window.addEventListener('resize', () => {
