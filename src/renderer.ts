@@ -172,26 +172,36 @@ function onDrag(event: MouseEvent) {
           isMovingObject = true;
           controls.enabled = false;
           selCube = obj.parent as THREE.Group;
-          console.log("box clicked " + obj.name + " fi=" + isInfo.faceIndex + " (" + selCube.position.x + " " + selCube.position.y + " " + selCube.position.z + ")");          
+          // console.log("box clicked " + obj.name + " fi=" + isInfo.faceIndex + " (" + selCube.position.x + " " + selCube.position.y + " " + selCube.position.z + ")");          
           selFace = isInfo.face as THREE.Face;
           isPoint = isInfo.point;
           // isPoint translated to local coordinates of baseGroup
           let modelViewInverse = baseGroup.matrixWorld.clone().invert();
           isPoint.applyMatrix4(modelViewInverse);
-          if (initialPoint !== null) {
+          const groupNormal = selFace.normal.clone().applyMatrix4(selCube.matrix).normalize();
+          console.log("groupNormal: " + groupNormal.x + " " + groupNormal.y + " " + groupNormal.z);
+          if (initialPoint !== null ) {
             const diff = isPoint.clone().sub(initialPoint);
-            let dragDir = majorAxis(diff);
-            const groupNormal = selFace.normal.clone().applyMatrix4(selCube.matrix).normalize();
-            let faceDir = majorAxis(groupNormal);
-            let rot = getRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, faceDir, dragDir);
-            console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
-            selRot = rot;
+            if (isPyraShape) {
+              // console.log("diff: " + diff.x + " " + diff.y + " " + diff.z);
+              let rot = getPyraRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, initialPoint, isPoint);
+              console.log("rot: " + rot);
+              selRot = rot;
+              // const iom = obj.material;
+              // for (let j = 0; j < iom.length; j++) {
+              //   iom[j] = grayMaterial;
+              // }
+              // showAll(false);
+              // obj.parent.visible = true;
+      } else {
+              let dragDir = majorAxis(diff);
+              let faceDir = majorAxis(groupNormal);
+              let rot = getRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, faceDir, dragDir);
+              console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
+              selRot = rot;
+            }
           }
         }
-        // const iom = obj.material;
-        // for (let j = 0; j < iom.length; j++) {
-        //   iom[j] = grayMaterial;
-        // }
         break;
       }
     }
@@ -225,6 +235,7 @@ function onPointerUp( event: MouseEvent) {
   initialPoint = null;
   selCube = null;
   selFace = null;
+  selRot = "";
 }
 
 function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight {
@@ -301,6 +312,12 @@ function toggleShowOneCube(): void {
   isShowOneCube = !isShowOneCube;
   fixedPieces.forEach((piece,index) => {
     piece.visible = isShowOneCube ? (index === testIndex) : true;
+  });
+}
+
+function showAll(show: boolean): void {
+  fixedPieces.forEach((piece,index) => {
+    piece.visible = show;
   });
 }
 
@@ -403,6 +420,68 @@ function getRotationBySelection(x: number, y: number, z: number, normalMajor: st
         const rotReverse = (rot === rot.toUpperCase());
         rot = rot.toLowerCase();
         if (dragReverse != rotReverse) {
+          rot = rot.toUpperCase();
+        }
+      return rot;
+    }
+  }
+  return "";
+}
+
+interface PyraRotationBySelection {
+  px: number;
+  py: number;
+  pz: number;
+  dir: string;
+  rot: string;
+}
+
+const pyraSelectionToRotation: PyraRotationBySelection[] = [
+  { px: -1, py: 99, pz: 99, dir: "x", rot: "L" },
+  { px:  1, py: 99, pz: 99, dir: "x", rot: "r" },
+  { px: 99, py: -1, pz: 99, dir: "y", rot: "D" },
+  { px: 99, py:  1, pz: 99, dir: "y", rot: "u" },
+  { px: 99, py: 99, pz: -1, dir: "z", rot: "B" },
+  { px: 99, py: 99, pz:  1, dir: "z", rot: "f" },
+];
+
+function getAngleDiff(x1: number, y1: number, x2: number, y2: number): number {
+  const angle1 = Math.atan2(y1, x1);
+  const angle2 = Math.atan2(y2, x2);
+  let diff = angle2 - angle1;
+  if (diff > Math.PI) {
+    diff -= Math.PI * 2;
+  } else if (diff < -Math.PI) {
+    diff += Math.PI * 2;
+  }
+  return diff;
+}
+
+function getPyraRotationBySelection(px: number, py: number, pz: number, dragStart: THREE.Vector3, dragEnd: THREE.Vector3): string {
+  const diff = dragEnd.clone().sub(dragStart);
+  const ax = Math.abs(diff.x);
+  const ay = Math.abs(diff.y);
+  const az = Math.abs(diff.z);
+  let dir = "";
+  let angleDiff = 0;
+  if (az < ax && az < ay) {
+    dir = "z";
+    angleDiff = getAngleDiff(dragStart.y, dragStart.x, dragEnd.y, dragEnd.x);
+  } else if (ay < ax) {
+    dir = "y";
+    angleDiff = getAngleDiff(-dragStart.z, dragStart.x, -dragEnd.z, dragEnd.x);
+  } else {
+    dir = "x";
+    angleDiff = getAngleDiff(dragStart.y, -dragStart.z, dragEnd.y, -dragEnd.z);
+  }
+  for (let i = 0; i < pyraSelectionToRotation.length; i++) {
+    const sel = pyraSelectionToRotation[i];
+    if ((sel.px === Math.round(px) || sel.px === 99) && (sel.py === Math.round(py) || sel.py === 99) && (sel.pz === Math.round(pz) || sel.pz === 99)
+      && sel.dir === dir) {
+        let rot = sel.rot;
+        const rotReverse = (rot === rot.toUpperCase());
+        rot = rot.toLowerCase();
+        if ((angleDiff < 0) != rotReverse) {
           rot = rot.toUpperCase();
         }
       return rot;
@@ -1535,6 +1614,9 @@ function onKeyDown(event: KeyboardEvent): void {
       break;
     case "5":
       toggleShowOneCube();
+      break;
+    case "6":
+      showAll(true);
       break;
     case "9":
       undoOperation();
