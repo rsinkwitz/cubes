@@ -161,11 +161,11 @@ function onDrag(event: MouseEvent) {
   // console.log("mouse " + mouse.x + " " + mouse.y);
 
   // calculate objects intersecting the picking ray
-  const intersects = raycaster.intersectObjects( baseGroup.children );
-  for ( let i = 0; i < intersects.length; i ++ ) {
+  const intersects = raycaster.intersectObjects(baseGroup.children);
+  for (let i = 0; i < intersects.length; i++) {
     const isInfo = intersects[i];
     const obj = isInfo.object;
-    if (obj instanceof THREE.Mesh) {
+    if (obj instanceof THREE.Mesh && obj.visible) {
       if (obj.name === "box") {
         // if object parent is not null
         if (obj.parent !== null) {
@@ -178,14 +178,15 @@ function onDrag(event: MouseEvent) {
           // isPoint translated to local coordinates of baseGroup
           let modelViewInverse = baseGroup.matrixWorld.clone().invert();
           isPoint.applyMatrix4(modelViewInverse);
-          const groupNormal = selFace.normal.clone().applyMatrix4(selCube.matrix).normalize();
-          console.log("groupNormal: " + groupNormal.x + " " + groupNormal.y + " " + groupNormal.z);
-          if (initialPoint !== null ) {
+          const faceNormal = selFace.normal.clone();
+          // console.log("idx: " + getPieceIndex(selCube) + " p: " + f2dec(selCube.position.x) + " " + f2dec(selCube.position.y) + " " + f2dec(selCube.position.z));
+          // console.log("normal: " + f2dec(faceNormal.x) + " " + f2dec(faceNormal.y) + " " + f2dec(faceNormal.z));
+          if (initialPoint !== null) {
             const diff = isPoint.clone().sub(initialPoint);
             if (isPyraShape) {
               // console.log("diff: " + diff.x + " " + diff.y + " " + diff.z);
               let rot = getPyraRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, initialPoint, isPoint);
-              console.log("rot: " + rot);
+              // console.log("rot: " + rot);
               selRot = rot;
               // const iom = obj.material;
               // for (let j = 0; j < iom.length; j++) {
@@ -193,11 +194,12 @@ function onDrag(event: MouseEvent) {
               // }
               // showAll(false);
               // obj.parent.visible = true;
-      } else {
+            } else {
+              // console.log("faceNormal: " + faceNormal.x + " " + faceNormal.y + " " + faceNormal.z);
               let dragDir = majorAxis(diff);
-              let faceDir = majorAxis(groupNormal);
+              let faceDir = majorAxis(faceNormal);
               let rot = getRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, faceDir, dragDir);
-              console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
+              // console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
               selRot = rot;
             }
           }
@@ -205,7 +207,22 @@ function onDrag(event: MouseEvent) {
         break;
       }
     }
-  }  
+  }
+}
+
+// get index of piece in the rotPieces array
+function getPieceIndex(piece: THREE.Group): number {
+  for (let i = 0; i < rotPieces.length; i++) {
+    if (rotPieces[i] === piece) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// function to print number with two decimal places
+function f2dec(num: number): string {
+  return num.toFixed(2);
 }
 
 let isMovingObject = false;
@@ -474,6 +491,7 @@ function getPyraRotationBySelection(px: number, py: number, pz: number, dragStar
     dir = "x";
     angleDiff = getAngleDiff(dragStart.y, -dragStart.z, dragEnd.y, -dragEnd.z);
   }
+  // console.log("p=" + Math.round(px) + " " + Math.round(py) + " " + Math.round(pz) + " dir: " + dir + " angleDiff: " + angleDiff * 180 / Math.PI );
   for (let i = 0; i < pyraSelectionToRotation.length; i++) {
     const sel = pyraSelectionToRotation[i];
     if ((sel.px === Math.round(px) || sel.px === 99) && (sel.py === Math.round(py) || sel.py === 99) && (sel.pz === Math.round(pz) || sel.pz === 99)
@@ -713,6 +731,7 @@ function createAllCubes(): void {
     for (let y = -1; y <= 1; y++) {
       for (let x = -1; x <= 1; x++) {
         const piece = createSingleCube(x, y, z);
+        piece.name = "cube" + index;
         rotPieces.push(piece);
         fixedPieces.push(piece);
         piece.visible = isShowOneCube ? (index === 26) : true;
