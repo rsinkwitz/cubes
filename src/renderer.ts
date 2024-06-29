@@ -16,7 +16,7 @@ declare global {
   }
 }
 
-const cubeDiv = document.getElementById('cube') as HTMLDivElement | HTMLDivElement;
+const cubeDiv = document.getElementById('container') as HTMLDivElement | HTMLDivElement;
 let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
 let controls: TrackballControls ;
@@ -98,6 +98,8 @@ function init(): void {
   baseGroup.add(axesHelper);
 
   gui = setupGui();
+  gui.domElement.id = 'gui';
+  cubeDiv.append(gui.domElement);
 
   // Initial camera update
   updateCamera(camera, objectWidth, objectHeight);
@@ -160,13 +162,13 @@ function majorAxis(vector: THREE.Vector3): string {
 }
 
 function onDrag(event: MouseEvent) {
-  const mouse = new THREE.Vector2(
-    (event.clientX / cubeDiv.clientWidth) * 2 - 1,
-    -(event.clientY / cubeDiv.clientHeight) * 2 + 1
-  );
+  const rect = cubeDiv.getBoundingClientRect();
+  const evx = event.clientX - rect.left;
+  const evy = event.clientY - rect.top;
+  const mouse = new THREE.Vector2((evx / cubeDiv.clientWidth) * 2 - 1, -(evy / cubeDiv.clientHeight) * 2 + 1);
+  // console.log("client: " + evx + " " + evy + " mouse: " + mouse.x + " " + mouse.y)
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
-  // console.log("mouse " + mouse.x + " " + mouse.y);
 
   // calculate objects intersecting the picking ray
   const intersects = raycaster.intersectObjects(baseGroup.children);
@@ -238,6 +240,7 @@ function f2dec(num: number): string {
 let isMovingObject = false;
 
 function onPointerDown( event: MouseEvent) {
+  console.log("event: " + event.clientX + " " + event.clientY);
   mouseDown = true;
   onDrag(event);
   initialPoint = isPoint.clone();
@@ -1576,7 +1579,7 @@ function toggleNormals(): void {
 }
 
 function setupGui(): GUI {
-  const gui = new GUI({closed: false, width: 100});
+  const gui = new GUI({closed: false, width: 100, autoPlace: false});
   gui.close();
   // gui.add( document, 'title' ).name('');
   gui.add({ fun: () => toggleRotationInfos() },'fun').name('Help [F1]');
@@ -1860,6 +1863,7 @@ const cubeObject = {
   redo: () => { redoOperation(); },
   shuffle: (n: number) => { shuffleOperation(n); },
   morph: (n: number) => { morphCombined(n); },
+  help: () => { toggleRotationInfos(); },
 };
 
 // Expose the cube object to the global scope
