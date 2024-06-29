@@ -1093,14 +1093,14 @@ function rotate(key: string, addToHistory: boolean = true): void {
     if (opsHistory.length > opsHistoryIndex + 1) {
       // cut redo history and add new operation
       opsHistory.splice(opsHistoryIndex + 1, opsHistory.length - opsHistoryIndex + 1, key);
-      console.log("cut redo history and add new operation");
+      // console.log("cut redo history and add new operation");
     } else {
       opsHistory.push(key);
-      console.log("add new operation");
+      // console.log("add new operation");
     }
     opsHistoryIndex++;
   }
-  console.log("key: " + key + " index: " + opsHistoryIndex + " length: " + opsHistory.length);
+  // console.log("key: " + key + " index: " + opsHistoryIndex + " length: " + opsHistory.length);
 
   const piecesToRotate = rotateModel(key, forward, nums);
   rotateGraphics(piecesToRotate, axis, (key === key.toLowerCase()) ? degrees : -degrees)
@@ -1621,6 +1621,7 @@ function setupGui(): GUI {
 }
 
 function onKeyDown(event: KeyboardEvent): void {
+  let isMac = /Mac/i.test(navigator.userAgent);
   switch (event.key) {
     case "F1":
       toggleRotationInfos();
@@ -1722,12 +1723,15 @@ function onKeyDown(event: KeyboardEvent): void {
     case "X":
     case "y": // y-axis
     case "Y":
-      rotateByEvent(event);
+      if ((isMac && event.metaKey || !isMac && event.ctrlKey)) {
+        redoOperation();
+      } else {
+        rotateByEvent(event);
+      }
       break;
     case "z": // z-axis
     case "Z":
-      // if z is pressed with ctrl key, undo the last operation instead
-      if (event.ctrlKey) {
+      if ((isMac && event.metaKey || !isMac && event.ctrlKey)) {
         undoOperation();
       } else {
         rotateByEvent(event);
