@@ -16,6 +16,7 @@ declare global {
   }
 }
 
+const cubeDiv = document.getElementById('cube') as HTMLDivElement | HTMLDivElement;
 let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
 let controls: TrackballControls ;
@@ -45,12 +46,14 @@ const objectWidth = 6.5;
 const objectHeight = 6.5;
 
 let numAnims: number = 0; // number of running rotation animations (one for each cube piece)
+let morphDuration: number = 0; // duration of rotation animation in seconds
 
 let fixedPieces: THREE.Group[] = []; // the list of pieces, not changed by rotations
 let rotPieces: THREE.Group[] = [];   // the list of pieces, changed by rotations
 let infoGroups: THREE.Group[] = [];
 
 let opsHistory: string[] = []; // the list of operations performed
+let opsHistoryIndex: number = -1; // the index of the last operation in the history
 let opsTodo: string[] = []; // the list of operations to perform automatically
 
 const basicMaterials: THREE.MeshStandardMaterial[] = [
@@ -66,7 +69,10 @@ const grayMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial(
 const wireframeMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x000000, wireframe: true});
 
 function init(): void {
-  const aspect = window.innerWidth / window.innerHeight;
+  if (cubeDiv.parentElement === null) {
+    console.log("cubeDiv not found, parentElement is null");
+  }
+  const aspect = cubeDiv.clientWidth / cubeDiv.clientHeight;
   const fov = 60;
   camera = new THREE.PerspectiveCamera(fov, aspect, 0.1, 1000);
   
@@ -76,15 +82,16 @@ function init(): void {
   
   scene = new THREE.Scene();
   renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+  renderer.setSize(cubeDiv.clientWidth, cubeDiv.clientHeight);
+  cubeDiv.appendChild(renderer.domElement);
+  var bgColor = cubeDiv.getAttribute('data-bg-color');  
 
-  renderer.setClearColor(0xb0c4de); // Light blue-gray color in hexadecimal
+  renderer.setClearColor(bgColor ? bgColor : 0xb0c4de); // Light blue-gray color in hexadecimal
   
   baseGroup = new THREE.Group();
   scene.add(baseGroup);
 
-  createMain();
+  createMain(cubeDiv.getAttribute('data-shape'));
 
   const axesHelper = new THREE.AxesHelper(3);
   axesHelper.visible = showAxes;
@@ -100,6 +107,7 @@ function init(): void {
   renderer.domElement.addEventListener( 'pointerup', onPointerUp );
   
   controls = new TrackballControls(camera, renderer.domElement);
+  controls.rotateSpeed = 2.0;
   controls.keys = [ 'KeyA', 'KeyW', 'KeyQ' ];
   resetView();
   controls.update();
@@ -153,8 +161,8 @@ function majorAxis(vector: THREE.Vector3): string {
 
 function onDrag(event: MouseEvent) {
   const mouse = new THREE.Vector2(
-    (event.clientX / window.innerWidth) * 2 - 1,
-    -(event.clientY / window.innerHeight) * 2 + 1
+    (event.clientX / cubeDiv.clientWidth) * 2 - 1,
+    -(event.clientY / cubeDiv.clientHeight) * 2 + 1
   );
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
@@ -178,15 +186,17 @@ function onDrag(event: MouseEvent) {
           // isPoint translated to local coordinates of baseGroup
           let modelViewInverse = baseGroup.matrixWorld.clone().invert();
           isPoint.applyMatrix4(modelViewInverse);
-          const faceNormal = selFace.normal.clone();
-          // console.log("idx: " + getPieceIndex(selCube) + " p: " + f2dec(selCube.position.x) + " " + f2dec(selCube.position.y) + " " + f2dec(selCube.position.z));
-          // console.log("normal: " + f2dec(faceNormal.x) + " " + f2dec(faceNormal.y) + " " + f2dec(faceNormal.z));
+          const orgNormal = selFace.normal.clone();
+          const groupNormal = selFace.normal.clone().applyMatrix4(selCube.matrix).normalize();
+          console.log("idx: " + getPieceIndex(selCube) + " p: " + f2dec(selCube.position.x) + " " + f2dec(selCube.position.y) + " " + f2dec(selCube.position.z) + 
+            " n: " + f2dec(groupNormal.x) + " " + f2dec(groupNormal.y) + " " + f2dec(groupNormal.z));
+            console.log("orgNormal: " + f2dec(orgNormal.x) + " " + f2dec(orgNormal.y) + " " + f2dec(orgNormal.z));
           if (initialPoint !== null) {
             const diff = isPoint.clone().sub(initialPoint);
             if (isPyraShape) {
               // console.log("diff: " + diff.x + " " + diff.y + " " + diff.z);
               let rot = getPyraRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, initialPoint, isPoint);
-              // console.log("rot: " + rot);
+              console.log("rot: " + rot);
               selRot = rot;
               // const iom = obj.material;
               // for (let j = 0; j < iom.length; j++) {
@@ -195,11 +205,11 @@ function onDrag(event: MouseEvent) {
               // showAll(false);
               // obj.parent.visible = true;
             } else {
-              // console.log("faceNormal: " + faceNormal.x + " " + faceNormal.y + " " + faceNormal.z);
+              console.log("groupNormal: " + groupNormal.x + " " + groupNormal.y + " " + groupNormal.z);
               let dragDir = majorAxis(diff);
-              let faceDir = majorAxis(faceNormal);
+              let faceDir = majorAxis(groupNormal);
               let rot = getRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, faceDir, dragDir);
-              // console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
+              console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
               selRot = rot;
             }
           }
@@ -262,8 +272,15 @@ function createDirLight(x: number, y: number, z: number): THREE.DirectionalLight
   return light;
 }
 
-function createMain() {
+function createMain(shape: string | null = null): void {
   createAllCubes();
+  if (shape === "pyramorphix") {
+    scaleTo2x2(true,0)
+    .then(() => morphToPyra(true, 0))
+    .then(() => setAllPyraColors());
+  } else if (shape === "2x2") {
+    scaleTo2x2(true, 0);
+  } 
   // createPyraFaceLines();
   //createBeveledCube();
 }
@@ -309,6 +326,7 @@ function resetMain() {
     });
   });
   opsHistory = [];
+  opsHistoryIndex = -1;
   opsTodo = [];
   is2x2 = false;
   isPyraShape = false;
@@ -491,7 +509,7 @@ function getPyraRotationBySelection(px: number, py: number, pz: number, dragStar
     dir = "x";
     angleDiff = getAngleDiff(dragStart.y, -dragStart.z, dragEnd.y, -dragEnd.z);
   }
-  // console.log("p=" + Math.round(px) + " " + Math.round(py) + " " + Math.round(pz) + " dir: " + dir + " angleDiff: " + angleDiff * 180 / Math.PI );
+  console.log("p=" + Math.round(px) + " " + Math.round(py) + " " + Math.round(pz) + " dir: " + dir + " angleDiff: " + angleDiff * 180 / Math.PI );
   for (let i = 0; i < pyraSelectionToRotation.length; i++) {
     const sel = pyraSelectionToRotation[i];
     if ((sel.px === Math.round(px) || sel.px === 99) && (sel.py === Math.round(py) || sel.py === 99) && (sel.pz === Math.round(pz) || sel.pz === 99)
@@ -1034,23 +1052,32 @@ function getRotationData(key: string): rotationDataEntry {
   return data[key];
 }
 
-function undoOperation(): void {
-  if (numAnims > 0 || opsHistory.length === 0 || isHideNext) {
-    return; // no undo while an animation is running
+  function undoOperation(): void {
+    if (numAnims > 0 || opsHistoryIndex < 0 || isHideNext) {
+      return; // no undo while an animation is running
+    }
+    let key = opsHistory[opsHistoryIndex--]
+    if (key) {
+      const undoKey = (key === key.toLowerCase()) ? key.toUpperCase() : key.toLowerCase();
+      rotate(undoKey, false);
+    }
   }
-  let key = opsHistory.pop();
-  if (key) {
-    const undoKey = (key === key.toLowerCase()) ? key.toUpperCase() : key.toLowerCase();
-    rotate(undoKey);
-    key = opsHistory.pop(); // do not log the undo uperation
+
+  function redoOperation(): void {
+    if (numAnims > 0 || opsHistoryIndex >= opsHistory.length - 1 || isHideNext) {
+      return; // no redo while an animation is running
+    }
+    let key = opsHistory[++opsHistoryIndex]
+    if (key) {
+      rotate(key, false);
+    }
   }
-}
 
   function rotateByEvent(event: KeyboardEvent): void {
     rotate(event.key + (event.altKey ? "!" : ""));
   }
 
-function rotate(key: string): void {
+function rotate(key: string, addToHistory: boolean = true): void {
   if (numAnims > 0) {
     return; // no rotation while an animation is running
   }
@@ -1062,7 +1089,18 @@ function rotate(key: string): void {
     return;
   }
 
-  opsHistory.push(key);
+  if (addToHistory) {
+    if (opsHistory.length > opsHistoryIndex + 1) {
+      // cut redo history and add new operation
+      opsHistory.splice(opsHistoryIndex + 1, opsHistory.length - opsHistoryIndex + 1, key);
+      console.log("cut redo history and add new operation");
+    } else {
+      opsHistory.push(key);
+      console.log("add new operation");
+    }
+    opsHistoryIndex++;
+  }
+  console.log("key: " + key + " index: " + opsHistoryIndex + " length: " + opsHistory.length);
 
   const piecesToRotate = rotateModel(key, forward, nums);
   rotateGraphics(piecesToRotate, axis, (key === key.toLowerCase()) ? degrees : -degrees)
@@ -1186,10 +1224,10 @@ function rotateModelSlice(nums: number[], rightRotate: boolean): void {
   }
 }
 
-function shuffle(): void {
+function shuffleOperation(n: number = 20): void {
   const moves = is2x2 ? ["l", "r", "u", "d", "b", "f"]
     : ["l", "m", "r", "u", "e", "d", "b", "s", "f"];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < n; i++) {
     let index = Math.floor(Math.random() * moves.length * 2);
     if (index >= moves.length) {
       index -= moves.length;
@@ -1203,7 +1241,7 @@ function shuffle(): void {
   }
 }
 
-function scaleTo2x2(forward: boolean): Promise<void> {
+function scaleTo2x2(forward: boolean, duration = 0.5): Promise<void> {
   if (forward === is2x2) {
     console.log("already in desired 2x2 mode: "+forward);
     return new Promise((resolve, reject) => {resolve();});
@@ -1230,7 +1268,7 @@ function scaleTo2x2(forward: boolean): Promise<void> {
     const tl = gsap.timeline();
     numAnims++;
     tl.to(animObj, {
-      lerpCenterScale: lerpCenterScale, lerpCornerScale: lerpCornerScale, lerpCornerTranslation: lerpCornerTranslation,  duration:0.5, ease: "linear",
+      lerpCenterScale: lerpCenterScale, lerpCornerScale: lerpCornerScale, lerpCornerTranslation: lerpCornerTranslation,  duration: duration, ease: "linear",
       onUpdate: () => {
           // Scale the center pieces
          centerPieces.forEach((piece, index) => {
@@ -1288,7 +1326,7 @@ function createNormals(mesh: THREE.Mesh): THREE.Group {
   return group;
 }
 
-function morphToPyra(forward: boolean): Promise<void> {
+function morphToPyra(forward: boolean, duration = 0.5): Promise<void> {
   if (forward === isPyraShape) {
     console.log("already in desired pyramorphix mode: "+forward);
     return new Promise((resolve, reject) => {resolve();});
@@ -1297,7 +1335,7 @@ function morphToPyra(forward: boolean): Promise<void> {
     const animObj = { lerpFactor: forward ? 0.0 : 1.0 };
     const tl = gsap.timeline();
     tl.to(animObj, {
-      lerpFactor: forward ? 1.0 : 0.0, duration: 1, ease: "linear",
+      lerpFactor: forward ? 1.0 : 0.0, duration: duration, ease: "linear",
       onUpdate: () => {
         fixedPieces.forEach((piece) => {
           const box = getBox(piece);
@@ -1560,7 +1598,7 @@ function setupGui(): GUI {
 
   const rotFolder = gui.addFolder('Rotations')
   rotFolder.add({ fun: () => undoOperation() },'fun').name('Undo [^z,9]');
-  rotFolder.add({ fun: () => shuffle() },'fun').name('Shuffle [F9]');
+  rotFolder.add({ fun: () => shuffleOperation() },'fun').name('Shuffle [F9]');
   rotFolder.add({ fun: () => resetMain() },'fun').name('Reset [F10]');
   rotFolder.add({ fun: () => rotateByButton('l') },'fun').name('Left [l]');
   rotFolder.add({ fun: () => rotateByButton('m') },'fun').name('Middle [m]');
@@ -1608,7 +1646,7 @@ function onKeyDown(event: KeyboardEvent): void {
       setAllCubeFaces();
       break;
     case "F9":
-      shuffle();
+      shuffleOperation();
       break;
     case "F10":
       resetMain();
@@ -1637,10 +1675,12 @@ function onKeyDown(event: KeyboardEvent): void {
     case "6":
       showAll(true);
       break;
+    case "8":
+      redoOperation();
+      break;
     case "9":
       undoOperation();
-      break;
-
+      break;  
     case "q":
       window.ipcRenderer.send('app-quit');
       break;
@@ -1775,7 +1815,7 @@ window.addEventListener("DOMContentLoaded", init);
 
 // Function to calculate the distance required to fit the object
 function calculateDistanceToFitObject(camera: THREE.PerspectiveCamera, objectWidth: number, objectHeight: number): number {
-  const aspect = window.innerWidth / window.innerHeight;
+  const aspect = cubeDiv.clientWidth / cubeDiv.clientHeight;
   const fov = camera.fov * (Math.PI / 180); // Convert vertical FOV to radians
 
   const height = objectHeight / 2;
@@ -1793,7 +1833,7 @@ function calculateDistanceToFitObject(camera: THREE.PerspectiveCamera, objectWid
 
 // Function to update the camera's position based on the object size and window dimensions
 function updateCamera(camera: THREE.PerspectiveCamera, objectWidth: number, objectHeight: number) {
-  const aspect = window.innerWidth / window.innerHeight;
+  const aspect = cubeDiv.clientWidth / cubeDiv.clientHeight;
   const newDistance = calculateDistanceToFitObject(camera, objectWidth, objectHeight);
 
   camera.aspect = aspect;
@@ -1803,7 +1843,20 @@ function updateCamera(camera: THREE.PerspectiveCamera, objectWidth: number, obje
 
 // Resize event handler
 window.addEventListener('resize', () => {
+  if (cubeDiv === null) {
+    return;
+  }
   updateCamera(camera, objectWidth, objectHeight);
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(cubeDiv.clientWidth, cubeDiv.clientHeight);
   controls.handleResize();
 });
+
+const cubeObject = {
+  undo: () => { undoOperation(); },
+  redo: () => { redoOperation(); },
+  shuffle: (n: number) => { shuffleOperation(n); },
+  morph: (n: number) => { morphCombined(n); },
+};
+
+// Expose the cube object to the global scope
+(window as any).cube = cubeObject;
