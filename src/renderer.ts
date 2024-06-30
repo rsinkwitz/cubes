@@ -161,6 +161,10 @@ function majorAxis(vector: THREE.Vector3): string {
   }
 }
 
+function f2dec2(value: number): string {
+  return value.toFixed(2);
+}
+
 function onDrag(event: MouseEvent) {
   const rect = cubeDiv.getBoundingClientRect();
   const evx = event.clientX - rect.left;
@@ -175,10 +179,10 @@ function onDrag(event: MouseEvent) {
   for (let i = 0; i < intersects.length; i++) {
     const isInfo = intersects[i];
     const obj = isInfo.object;
-    if (obj instanceof THREE.Mesh && obj.visible) {
+    if (obj instanceof THREE.Mesh) {
       if (obj.name === "box") {
         // if object parent is not null
-        if (obj.parent !== null) {
+        if (obj.parent !== null && obj.parent.visible) {
           isMovingObject = true;
           controls.enabled = false;
           selCube = obj.parent as THREE.Group;
@@ -188,35 +192,36 @@ function onDrag(event: MouseEvent) {
           // isPoint translated to local coordinates of baseGroup
           let modelViewInverse = baseGroup.matrixWorld.clone().invert();
           isPoint.applyMatrix4(modelViewInverse);
-          const orgNormal = selFace.normal.clone();
+          // const orgNormal = selFace.normal.clone();
           const groupNormal = selFace.normal.clone().applyMatrix4(selCube.matrix).normalize();
-          console.log("idx: " + getPieceIndex(selCube) + " p: " + f2dec(selCube.position.x) + " " + f2dec(selCube.position.y) + " " + f2dec(selCube.position.z) + 
-            " n: " + f2dec(groupNormal.x) + " " + f2dec(groupNormal.y) + " " + f2dec(groupNormal.z));
-            console.log("orgNormal: " + f2dec(orgNormal.x) + " " + f2dec(orgNormal.y) + " " + f2dec(orgNormal.z));
+          // const pieceIndex = getPieceIndex(selCube);
+          // console.log("idx: " + pieceIndex + " p: " + f2dec2(selCube.position.x) + " " + f2dec2(selCube.position.y) + " " + f2dec2(selCube.position.z) + 
+          //   " n: " + f2dec2(groupNormal.x) + " " + f2dec2(groupNormal.y) + " " + f2dec2(groupNormal.z));
+          // console.log("orgNormal: " + f2dec2(orgNormal.x) + " " + f2dec2(orgNormal.y) + " " + f2dec2(orgNormal.z));
+          // const iom = obj.material;
+          // for (let j = 0; j < iom.length; j++) {
+          //   iom[j] = grayMaterial;
+          // }
+          // showAll(false);
+          obj.parent.visible = true;
           if (initialPoint !== null) {
             const diff = isPoint.clone().sub(initialPoint);
             if (isPyraShape) {
-              // console.log("diff: " + diff.x + " " + diff.y + " " + diff.z);
               let rot = getPyraRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, initialPoint, isPoint);
-              console.log("rot: " + rot);
+              // console.log("rot: " + rot);
               selRot = rot;
-              // const iom = obj.material;
-              // for (let j = 0; j < iom.length; j++) {
-              //   iom[j] = grayMaterial;
-              // }
-              // showAll(false);
-              // obj.parent.visible = true;
             } else {
-              console.log("groupNormal: " + groupNormal.x + " " + groupNormal.y + " " + groupNormal.z);
+              // console.log("groupNormal: " + groupNormal.x + " " + groupNormal.y + " " + groupNormal.z);
               let dragDir = majorAxis(diff);
               let faceDir = majorAxis(groupNormal);
+              // task major drag axis and normal on face, then lookup rotation
               let rot = getRotationBySelection(selCube.position.x, selCube.position.y, selCube.position.z, faceDir, dragDir);
-              console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
+              // console.log("normalDir: " + faceDir, " dragDir: " + dragDir + " rot: " + rot);
               selRot = rot;
             }
           }
+          break;
         }
-        break;
       }
     }
   }
@@ -230,11 +235,6 @@ function getPieceIndex(piece: THREE.Group): number {
     }
   }
   return -1;
-}
-
-// function to print number with two decimal places
-function f2dec(num: number): string {
-  return num.toFixed(2);
 }
 
 let isMovingObject = false;
@@ -500,6 +500,8 @@ function getPyraRotationBySelection(px: number, py: number, pz: number, dragStar
   const ax = Math.abs(diff.x);
   const ay = Math.abs(diff.y);
   const az = Math.abs(diff.z);
+  // dragging on one face or multiple with same normal, one axis is almost zero
+  // take this and angle difference to determine rotation
   let dir = "";
   let angleDiff = 0;
   if (az < ax && az < ay) {
@@ -512,20 +514,22 @@ function getPyraRotationBySelection(px: number, py: number, pz: number, dragStar
     dir = "x";
     angleDiff = getAngleDiff(dragStart.y, -dragStart.z, dragEnd.y, -dragEnd.z);
   }
-  console.log("p=" + Math.round(px) + " " + Math.round(py) + " " + Math.round(pz) + " dir: " + dir + " angleDiff: " + angleDiff * 180 / Math.PI );
+  console.log("p=" + f2dec2(px) + " " + f2dec2(py) + " " + f2dec2(pz) + " dir: " + dir + " angleDiff: " + angleDiff * 180 / Math.PI );
   for (let i = 0; i < pyraSelectionToRotation.length; i++) {
     const sel = pyraSelectionToRotation[i];
     if ((sel.px === Math.round(px) || sel.px === 99) && (sel.py === Math.round(py) || sel.py === 99) && (sel.pz === Math.round(pz) || sel.pz === 99)
       && sel.dir === dir) {
-        let rot = sel.rot;
-        const rotReverse = (rot === rot.toUpperCase());
-        rot = rot.toLowerCase();
-        if ((angleDiff < 0) != rotReverse) {
-          rot = rot.toUpperCase();
-        }
+      let rot = sel.rot;
+      const rotReverse = (rot === rot.toUpperCase());
+      rot = rot.toLowerCase();
+      if ((angleDiff < 0) != rotReverse) {
+        rot = rot.toUpperCase();
+      }
+      console.log("rot: " + rot);
       return rot;
     }
   }
+  console.log("no rot found");
   return "";
 }
 
