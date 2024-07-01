@@ -240,7 +240,7 @@ function getPieceIndex(piece: THREE.Group): number {
 let isMovingObject = false;
 
 function onPointerDown( event: MouseEvent) {
-  console.log("event: " + event.clientX + " " + event.clientY);
+  // console.log("event: " + event.clientX + " " + event.clientY);
   mouseDown = true;
   onDrag(event);
   initialPoint = isPoint.clone();
@@ -514,7 +514,7 @@ function getPyraRotationBySelection(px: number, py: number, pz: number, dragStar
     dir = "x";
     angleDiff = getAngleDiff(dragStart.y, -dragStart.z, dragEnd.y, -dragEnd.z);
   }
-  console.log("p=" + f2dec2(px) + " " + f2dec2(py) + " " + f2dec2(pz) + " dir: " + dir + " angleDiff: " + angleDiff * 180 / Math.PI );
+  // console.log("p=" + f2dec2(px) + " " + f2dec2(py) + " " + f2dec2(pz) + " dir: " + dir + " angleDiff: " + angleDiff * 180 / Math.PI );
   for (let i = 0; i < pyraSelectionToRotation.length; i++) {
     const sel = pyraSelectionToRotation[i];
     if ((sel.px === Math.round(px) || sel.px === 99) && (sel.py === Math.round(py) || sel.py === 99) && (sel.pz === Math.round(pz) || sel.pz === 99)
@@ -525,7 +525,7 @@ function getPyraRotationBySelection(px: number, py: number, pz: number, dragStar
       if ((angleDiff < 0) != rotReverse) {
         rot = rot.toUpperCase();
       }
-      console.log("rot: " + rot);
+      // console.log("rot: " + rot);
       return rot;
     }
   }
@@ -1250,7 +1250,7 @@ function shuffleOperation(n: number = 20): void {
 
 function scaleTo2x2(forward: boolean, duration = 0.5): Promise<void> {
   if (forward === is2x2) {
-    console.log("already in desired 2x2 mode: "+forward);
+    // console.log("already in desired 2x2 mode: "+forward);
     return new Promise((resolve, reject) => {resolve();});
   }
   return new Promise((resolve) => {
@@ -1335,7 +1335,7 @@ function createNormals(mesh: THREE.Mesh): THREE.Group {
 
 function morphToPyra(forward: boolean, duration = 0.5): Promise<void> {
   if (forward === isPyraShape) {
-    console.log("already in desired pyramorphix mode: "+forward);
+    // console.log("already in desired pyramorphix mode: "+forward);
     return new Promise((resolve, reject) => {resolve();});
   }
   return new Promise((resolve) => {
@@ -1409,13 +1409,13 @@ function morphCombined(newState: number): Promise<void> {
   return new Promise((resolve) => {
     const ops: (() => Promise<void>)[] = [];
     const orgState = (is2x2 ? 1 : 0) + (isPyraShape ? 2 : 0);
-    console.log("morphing from " + orgState + " to " + newState);
+    // console.log("morphing from " + orgState + " to " + newState);
     const path = paths.find((path) => path.from === orgState && path.to === newState);
     path?.ops.forEach((op) => ops.push(op));
     doInSequence(ops)
     .then(() => {
       const state: number = (is2x2 ? 1 : 0) + (isPyraShape ? 2 : 0);
-      console.log("Arrived at state "+state);
+      // console.log("Arrived at state "+state);
     })
     .then(() => resolve());
   });
@@ -1544,7 +1544,7 @@ function setBasegroupRotation(): void {
   tl.to(animObj, {
     lerpFactor: 1, duration: 0.5, ease: "linear",
     onUpdate: () => {
-      console.log("lerpFactor: " + animObj.lerpFactor);
+      // console.log("lerpFactor: " + animObj.lerpFactor);
       baseGroup.quaternion.slerp(targetQuaternion, animObj.lerpFactor);
       baseGroup.updateMatrix();
     },
@@ -1757,7 +1757,7 @@ function onKeyDown(event: KeyboardEvent): void {
         let numOptions = Object.keys(ColorMask).length;
         testIndex = Math.min(testIndex + 1, numOptions - 1);
         colorMaskOption = testIndex as ColorMask;
-        console.log("colorMaskOption: " + colorMaskOption);
+        // console.log("colorMaskOption: " + colorMaskOption);
         setAllCubeColors();
       }
       break;
@@ -1768,7 +1768,7 @@ function onKeyDown(event: KeyboardEvent): void {
         let numOptions = Object.keys(ColorMask).length;
         testIndex = Math.max(testIndex - 1, 0);
         colorMaskOption = testIndex as ColorMask;
-        console.log("colorMaskOption: " + colorMaskOption);
+        // console.log("colorMaskOption: " + colorMaskOption);
         setAllCubeColors();
       }
       break;
