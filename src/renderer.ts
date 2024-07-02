@@ -1080,9 +1080,9 @@ function getRotationData(key: string): rotationDataEntry {
     }
   }
 
-  function rotateByEvent(event: KeyboardEvent): void {
-    rotate(event.key + (event.altKey ? "!" : ""));
-  }
+function rotateByEvent(event: KeyboardEvent): void {
+  rotate(event.key + (event.altKey ? "!" : ""));
+}
 
 function rotate(key: string, addToHistory: boolean = true): void {
   if (numAnims > 0) {
@@ -1629,6 +1629,7 @@ function setupGui(): GUI {
 
 function onKeyDown(event: KeyboardEvent): void {
   let isMac = /Mac/i.test(navigator.userAgent);
+  let decodedKey = null;
   switch (event.key) {
     case "F1":
       toggleRotationInfos();
@@ -1795,7 +1796,22 @@ function onKeyDown(event: KeyboardEvent): void {
       baseGroup.updateMatrix();
       break;
     default:
-      break;
+      if (event.altKey) {
+        switch (event.code) {
+          case "KeyL": decodedKey = "l"; break;
+          case "KeyR": decodedKey = "r"; break;
+          case "KeyU": decodedKey = "u"; break;
+          case "KeyD": decodedKey = "d"; break;
+          case "KeyF": decodedKey = "f"; break;
+          case "KeyB": decodedKey = "b"; break;
+        }
+        if (decodedKey != null) {
+          if (event.shiftKey) {
+            decodedKey = decodedKey.toUpperCase();
+          }
+          rotate(decodedKey + "!"); // rotate with alt key
+        }
+      }
   }
   event.preventDefault();
 }
