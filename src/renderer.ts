@@ -31,8 +31,10 @@ let showRotationInfos = false;
 let isWireframe = false;
 let isHideNext = false;
 let is2x2 = false;
+let isMirrorCube = false;
 let isPyraShape = false;
 let isPyraColors = false;
+let isMirrorColors = false;
 let testIndex: number = 0;
 let isShowOneCube = false;
 let isViewRight = true;
@@ -66,7 +68,10 @@ const basicMaterials: THREE.MeshStandardMaterial[] = [
 ];
 const blackMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x202020, roughness: roughness});
 const grayMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x808080, roughness: roughness});
+const silverMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0xc0c0c0, roughness: 0.1});
 const wireframeMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x000000, wireframe: true});
+
+const mirrorMaterials: THREE.MeshStandardMaterial[] = [silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial];
 
 function init(): void {
   if (cubeDiv.parentElement === null) {
@@ -334,6 +339,8 @@ function resetMain() {
   is2x2 = false;
   isPyraShape = false;
   isPyraColors = false;
+  isMirrorCube = false;
+  isMirrorColors = false;
   createMain();
 }
 
@@ -717,7 +724,7 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
     });
     geometry.morphAttributes.position = [newPositions];
 
-    // create normals for the modified geometry
+    // create normals for the modified geometry 
     const tempGeometry = new THREE.BufferGeometry();
     tempGeometry.setAttribute('position', newPositions);
     if (geometry.index) {
@@ -726,6 +733,7 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
     tempGeometry.computeVertexNormals();
     geometry.morphAttributes.normal = [tempGeometry.getAttribute('normal')];
   }
+  
   return geometry;
 }
 
@@ -860,12 +868,13 @@ function setAllCubeColors(): void {
 function setCubeFaceColor(materials: THREE.Material[], index: number, i1: number, i2: number, enabled: MaskEnabledValue): void {
   const enabled1 = enabled.all || enabled.faces?.includes(i1);
   const enabled2 = enabled.all || enabled.faces?.includes(i2);
+  const sourceMaterials = isMirrorColors ? mirrorMaterials : basicMaterials;
   if (index === -1 && enabled1) {
-    materials[i1*2] = basicMaterials[i1];
-    materials[i1*2+1] = basicMaterials[i1];
+    materials[i1*2] = sourceMaterials[i1];
+    materials[i1*2+1] = sourceMaterials[i1];
   } else if (index === 1 && enabled2) {
-    materials[i2*2] = basicMaterials[i2];
-    materials[i2*2+1] = basicMaterials[i2];
+    materials[i2*2] = sourceMaterials[i2];
+    materials[i2*2+1] = sourceMaterials[i2];
   }
 }
 
@@ -1305,6 +1314,122 @@ function scaleTo2x2(forward: boolean, duration = 0.5): Promise<void> {
   });
 }
 
+function getScaleAndTrans(addl : number, forward: boolean, transFactor: number): [number, number] {
+  const scale2 = 1 + addl;
+  return [forward ? scale2 : 1/scale2, (forward ? (1-scale2)/2 : (1-1/scale2)/2) * transFactor];
+}
+
+function scaleToMirrorCube(forward: boolean, duration = 0.5): Promise<void> {
+  if (forward === isMirrorCube) {
+    // console.log("already in desired 2x2 mode: "+forward);
+    return new Promise((resolve, reject) => {resolve();});
+  }
+  return new Promise((resolve) => {
+    const leftIndexes: number[] = []; // the left pieces
+    const rightIndexes: number[]  = []; // the right pieces
+    const bottomIndexes: number[] = []; // the bottom pieces
+    const topIndexes: number[] = []; // the top pieces
+    const backIndexes: number[] = []; // the back pieces
+    const frontIndexes: number[] = []; // the front pieces
+
+    for (let i = 0; i < 27; i++) {
+      const ix = i % 3;
+      const iy = Math.floor(i / 3) % 3;
+      const iz = Math.floor(i / 9);
+      if (ix === 0) {
+        leftIndexes.push(i);
+      }
+      if (ix === 2) {
+        rightIndexes.push(i);
+      }
+      if (iy === 0) {
+        bottomIndexes.push(i);
+      }
+      if (iy === 2) {
+        topIndexes.push(i);
+      }
+      if (iz === 0) {
+        backIndexes.push(i);
+      }
+      if (iz === 2) {
+        frontIndexes.push(i);
+      }
+    }
+
+    const [leftScaleTo, leftTransTo] = getScaleAndTrans(0.4, forward, -1);
+    const [rightScaleTo, rightTransTo] = getScaleAndTrans(-0.4, forward, 1);
+    const [bottomScaleTo, bottomTransTo] = getScaleAndTrans(-0.6, forward, -1);
+    const [topScaleTo, topTransTo] = getScaleAndTrans(0.6, forward, 1);
+    const [backScaleTo, backTransTo] = getScaleAndTrans(0.2, forward, -1);
+    const [frontScaleTo, frontTransTo] = getScaleAndTrans(-0.2, forward, 1);
+    
+    const startMatrices = fixedPieces.map((piece) => piece.matrix.clone());
+    const animObj = {leftScale: 1, leftTrans: 0, rightScale: 1, rightTrans: 0, bottomScale: 1, bottomTrans: 0, topScale: 1, topTrans: 0,
+      backScale: 1, backTrans: 0, frontScale: 1, frontTrans: 0 };
+
+    const tl = gsap.timeline();
+    numAnims++;
+    tl.to(animObj, {
+      leftScale: leftScaleTo, leftTrans: leftTransTo, rightScale: rightScaleTo, rightTrans: rightTransTo, 
+      bottomScale: bottomScaleTo, bottomTrans: bottomTransTo, topScale: topScaleTo, topTrans: topTransTo,
+      backScale: backScaleTo, backTrans: backTransTo, frontScale: frontScaleTo, frontTrans: frontTransTo,
+      duration: duration, ease: "linear",
+      onUpdate: () => {
+        fixedPieces.forEach((piece, index) => {
+          piece.matrix.copy(startMatrices[index]); // Reset the matrix to the start matrix (undo previous transforms)
+        });
+        // Scale and move the left pieces
+        leftIndexes.forEach((index: number) => {
+          const piece: THREE.Group = fixedPieces[index];
+          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(animObj.leftTrans, 0, 0)
+            .multiply(new THREE.Matrix4().makeScale(animObj.leftScale, 1, 1)));
+          piece.matrixWorldNeedsUpdate = true;
+        });
+        // Scale and move the right pieces
+        rightIndexes.forEach((index: number) => {
+          const piece: THREE.Group = fixedPieces[index];
+          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(animObj.rightTrans, 0, 0)
+            .multiply(new THREE.Matrix4().makeScale(animObj.rightScale, 1, 1)));
+          piece.matrixWorldNeedsUpdate = true;
+        });
+        // Scale and move the bottom pieces
+        bottomIndexes.forEach((index: number) => {
+          const piece: THREE.Group = fixedPieces[index];
+          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(0, animObj.bottomTrans, 0)
+            .multiply(new THREE.Matrix4().makeScale(1, animObj.bottomScale, 1)));
+          piece.matrixWorldNeedsUpdate = true;
+        });
+        // Scale and move the top pieces
+        topIndexes.forEach((index: number) => {
+          const piece: THREE.Group = fixedPieces[index];
+          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(0, animObj.topTrans, 0)
+            .multiply(new THREE.Matrix4().makeScale(1, animObj.topScale, 1)));
+          piece.matrixWorldNeedsUpdate = true;
+        });
+        // Scale and move the back pieces
+        backIndexes.forEach((index: number) => {
+          const piece: THREE.Group = fixedPieces[index];
+          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, animObj.backTrans)
+            .multiply(new THREE.Matrix4().makeScale(1, 1, animObj.backScale)));
+          piece.matrixWorldNeedsUpdate = true;
+        });
+        // Scale and move the front pieces
+        frontIndexes.forEach((index: number) => {
+          const piece: THREE.Group = fixedPieces[index];
+          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, animObj.frontTrans)
+            .multiply(new THREE.Matrix4().makeScale(1, 1, animObj.frontScale)));
+          piece.matrixWorldNeedsUpdate = true;
+        });
+      },
+      onComplete: () => {
+        numAnims--;
+        isMirrorCube = forward;
+        resolve();
+      }
+    });
+  });
+}
+
 function createNormals(mesh: THREE.Mesh): THREE.Group {
   const group = new THREE.Group();
   group.name = "normals";
@@ -1653,6 +1778,9 @@ function onKeyDown(event: KeyboardEvent): void {
     case "F7":
       isPyraColors = false;
       setAllCubeFaces();
+      break;
+    case "F8":
+      scaleToMirrorCube(!isMirrorCube).then(() => {isMirrorColors = isMirrorCube; setAllCubeFaces()});
       break;
     case "F9":
       shuffleOperation();
