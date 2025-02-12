@@ -1321,7 +1321,7 @@ function getScaleAndTrans(addl : number, forward: boolean, transFactor: number):
 
 function scaleToMirrorCube(forward: boolean, duration = 0.5): Promise<void> {
   if (forward === isMirrorCube) {
-    // console.log("already in desired 2x2 mode: "+forward);
+    // console.log("already in desired mirror cube mode: "+forward);
     return new Promise((resolve, reject) => {resolve();});
   }
   return new Promise((resolve) => {
@@ -1707,6 +1707,10 @@ function toggleNormals(): void {
   isNormals = !isNormals;
 }
 
+function toggleMirrorCube(): void {
+  scaleToMirrorCube(!isMirrorCube).then(() => {isMirrorColors = isMirrorCube; setAllCubeFaces()});
+}
+
 function setupGui(): GUI {
   const gui = new GUI({closed: false, width: 100, autoPlace: false});
   gui.close();
@@ -1717,6 +1721,7 @@ function setupGui(): GUI {
   shapeFolder.add({ fun: () => morphCombined(1) },'fun').name('2x2 [F3]');
   shapeFolder.add({ fun: () => morphCombined(3) },'fun').name('Pyramorphix [F4]');
   shapeFolder.add({ fun: () => morphCombined(2) },'fun').name('Poke-like [F5]');
+  shapeFolder.add({ fun: () => toggleMirrorCube() },'fun').name('Mirror [F8]');
 
   const looksFolder = gui.addFolder('View')
   looksFolder.add({ fun: () => toggleViewRight() },'fun').name('Left/Right [1]');
@@ -1780,7 +1785,7 @@ function onKeyDown(event: KeyboardEvent): void {
       setAllCubeFaces();
       break;
     case "F8":
-      scaleToMirrorCube(!isMirrorCube).then(() => {isMirrorColors = isMirrorCube; setAllCubeFaces()});
+      toggleMirrorCube();
       break;
     case "F9":
       shuffleOperation();
