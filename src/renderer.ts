@@ -41,6 +41,7 @@ let isShowOneCube = false;
 let isViewRight = true;
 let viewUp = 1;
 let isNormals = false;
+let isGold = false;
 
 const cubeSize: number = 0.98;
 const cubeStep: number = 1;
@@ -70,7 +71,8 @@ const basicMaterials: THREE.MeshStandardMaterial[] = [
 const blackMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x202020, roughness: roughness});
 const grayMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x808080, roughness: roughness});
 const wireframeMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x000000, wireframe: true});
-
+let silverMaterial: THREE.MeshStandardMaterial;
+let goldMaterial: THREE.MeshStandardMaterial;
 let mirrorMaterials: THREE.MeshStandardMaterial[];
 
 function init(): void {
@@ -103,15 +105,22 @@ function init(): void {
     scene.environment = texture;
     // scene.background = texture; // Optional: Set the background to the environment map
 
-  // Update the silver material to use the environment map
-  const silverMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({
-    color: 0xc0c0c0,
-    roughness: 0.05, // Lower roughness for a shinier surface
-    metalness: 1.0, // High metalness for a metallic look
-    envMap: texture, // Apply the environment map
-    envMapIntensity: 1.0 // Ensure environment map intensity is set
-  });
+    // Update the silver material to use the environment map
+    silverMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc0c0c0,
+      roughness: 0.05, // Lower roughness for a shinier surface
+      metalness: 1.0, // High metalness for a metallic look
+      envMap: texture, // Apply the environment map
+      envMapIntensity: 1.0 // Ensure environment map intensity is set
+    });
 
+    goldMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffd700, // Gold color
+      roughness: 0.05, // Lower roughness for a shinier surface
+      metalness: 1.0, // High metalness for a metallic look
+      envMap: texture, // Apply the environment map
+      envMapIntensity: 1.0 // Ensure environment map intensity is set
+    });
     mirrorMaterials = [silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial];
     init1();
   });
@@ -1734,6 +1743,16 @@ function toggleMirrorCube(): void {
   scaleToMirrorCube(!isMirrorCube).then(() => {isMirrorColors = isMirrorCube; setAllCubeFaces()});
 }
 
+function toggleGold(): void {
+  isGold = !isGold;
+  if (isGold) {
+    mirrorMaterials = [goldMaterial, goldMaterial, goldMaterial, goldMaterial, goldMaterial, goldMaterial];
+  } else {
+    mirrorMaterials = [silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial];
+  }
+  setAllCubeFaces();
+}
+
 function setupGui(): GUI {
   const gui = new GUI({closed: false, width: 100, autoPlace: false});
   gui.close();
@@ -1755,6 +1774,7 @@ function setupGui(): GUI {
   looksFolder.add({ fun: () => toggleWireframe() },'fun').name('Wireframe [w]');
   looksFolder.add({ fun: () => setAllPyraColors() },'fun').name('Pyra-Colors [F6]');
   looksFolder.add({ fun: () => setAllCubeColors() },'fun').name('Cube-Colors [F7]');
+  looksFolder.add({ fun: () => toggleGold() },'fun').name('Gold mirror [g]');
 
   const rotFolder = gui.addFolder('Rotations')
   rotFolder.add({ fun: () => undoOperation() },'fun').name('Undo [^z,9]');
@@ -1851,6 +1871,11 @@ function onKeyDown(event: KeyboardEvent): void {
       break;
     case "a":
       toggleAxes();
+      break;
+    case "g":
+    case "G":
+      toggleGold();
+      setAllCubeFaces();
       break;
     case "n":
     case "N":
