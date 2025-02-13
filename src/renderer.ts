@@ -5,6 +5,7 @@ import {Font, FontLoader} from 'three/examples/jsm/loaders/FontLoader';
 import gsap from "gsap";
 import { GUI } from 'dat.gui';
 import { BoxGeometryEnh } from './BoxGeometryEnh';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader';
 // import { CustomControls } from './CustomControls';
 
 declare global {
@@ -68,10 +69,9 @@ const basicMaterials: THREE.MeshStandardMaterial[] = [
 ];
 const blackMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x202020, roughness: roughness});
 const grayMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x808080, roughness: roughness});
-const silverMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0xc0c0c0, roughness: 0.1});
 const wireframeMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({color: 0x000000, wireframe: true});
 
-const mirrorMaterials: THREE.MeshStandardMaterial[] = [silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial];
+let mirrorMaterials: THREE.MeshStandardMaterial[];
 
 function init(): void {
   if (cubeDiv.parentElement === null) {
@@ -96,6 +96,28 @@ function init(): void {
   baseGroup = new THREE.Group();
   scene.add(baseGroup);
 
+  const loader = new RGBELoader();
+  // loader.load('textures/autumn_field_puresky_1k.hdr', function (texture) {
+  loader.load('textures/rosendal_plains_2_1k.hdr', function (texture) {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = texture;
+    // scene.background = texture; // Optional: Set the background to the environment map
+
+  // Update the silver material to use the environment map
+  const silverMaterial: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({
+    color: 0xc0c0c0,
+    roughness: 0.05, // Lower roughness for a shinier surface
+    metalness: 1.0, // High metalness for a metallic look
+    envMap: texture, // Apply the environment map
+    envMapIntensity: 1.0 // Ensure environment map intensity is set
+  });
+
+    mirrorMaterials = [silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial, silverMaterial];
+    init1();
+  });
+}
+
+function init1(): void {
   createMain(cubeDiv.getAttribute('data-shape'));
 
   const axesHelper = new THREE.AxesHelper(3);
