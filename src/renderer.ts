@@ -740,6 +740,7 @@ function createGeometry(cubeIndex: number): BoxGeometryEnh {
 function createSingleCube(x: number, y: number, z: number): THREE.Group {
   const geometry: BoxGeometryEnh| null = createGeometry((x+1) + (y+1) * 3 + (z+1) * 9);
   const box = new THREE.Mesh(geometry, blackMaterial);
+  box.matrixAutoUpdate = false;
   box.name = "box";
   const group = new THREE.Group();
   group.matrixAutoUpdate = false;
@@ -1356,14 +1357,14 @@ function scaleToMirrorCube(forward: boolean, duration = 0.5): Promise<void> {
       }
     }
 
-    const [leftScaleTo, leftTransTo] = getScaleAndTrans(0.4, forward, -1);
-    const [rightScaleTo, rightTransTo] = getScaleAndTrans(-0.4, forward, 1);
-    const [bottomScaleTo, bottomTransTo] = getScaleAndTrans(-0.6, forward, -1);
-    const [topScaleTo, topTransTo] = getScaleAndTrans(0.6, forward, 1);
-    const [backScaleTo, backTransTo] = getScaleAndTrans(0.2, forward, -1);
-    const [frontScaleTo, frontTransTo] = getScaleAndTrans(-0.2, forward, 1);
+    const [leftScaleTo, leftTransTo] = getScaleAndTrans(0.4, forward, 1);
+    const [rightScaleTo, rightTransTo] = getScaleAndTrans(-0.4, forward, -1);
+    const [bottomScaleTo, bottomTransTo] = getScaleAndTrans(-0.6, forward, 1);
+    const [topScaleTo, topTransTo] = getScaleAndTrans(0.6, forward, -1);
+    const [backScaleTo, backTransTo] = getScaleAndTrans(0.2, forward, 1);
+    const [frontScaleTo, frontTransTo] = getScaleAndTrans(-0.2, forward, -1);
     
-    const startMatrices = fixedPieces.map((piece) => piece.matrix.clone());
+    const startMatrices = fixedPieces.map((piece) => getBox(piece).matrix.clone());
     const animObj = {leftScale: 1, leftTrans: 0, rightScale: 1, rightTrans: 0, bottomScale: 1, bottomTrans: 0, topScale: 1, topTrans: 0,
       backScale: 1, backTrans: 0, frontScale: 1, frontTrans: 0 };
 
@@ -1376,49 +1377,49 @@ function scaleToMirrorCube(forward: boolean, duration = 0.5): Promise<void> {
       duration: duration, ease: "linear",
       onUpdate: () => {
         fixedPieces.forEach((piece, index) => {
-          piece.matrix.copy(startMatrices[index]); // Reset the matrix to the start matrix (undo previous transforms)
+           getBox(piece).matrix.copy(startMatrices[index]); // Reset the matrix to the start matrix (undo previous transforms)
         });
         // Scale and move the left pieces
         leftIndexes.forEach((index: number) => {
-          const piece: THREE.Group = fixedPieces[index];
-          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(animObj.leftTrans, 0, 0)
+          const box: THREE.Mesh = getBox(fixedPieces[index]);
+          box.applyMatrix4(new THREE.Matrix4().makeTranslation(animObj.leftTrans, 0, 0)
             .multiply(new THREE.Matrix4().makeScale(animObj.leftScale, 1, 1)));
-          piece.matrixWorldNeedsUpdate = true;
+          box.matrixWorldNeedsUpdate = true;
         });
         // Scale and move the right pieces
         rightIndexes.forEach((index: number) => {
-          const piece: THREE.Group = fixedPieces[index];
-          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(animObj.rightTrans, 0, 0)
+          const box: THREE.Mesh = getBox(fixedPieces[index]);
+          box.applyMatrix4(new THREE.Matrix4().makeTranslation(animObj.rightTrans, 0, 0)
             .multiply(new THREE.Matrix4().makeScale(animObj.rightScale, 1, 1)));
-          piece.matrixWorldNeedsUpdate = true;
+          box.matrixWorldNeedsUpdate = true;
         });
         // Scale and move the bottom pieces
         bottomIndexes.forEach((index: number) => {
-          const piece: THREE.Group = fixedPieces[index];
-          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(0, animObj.bottomTrans, 0)
+          const box: THREE.Mesh = getBox(fixedPieces[index]);
+          box.applyMatrix4(new THREE.Matrix4().makeTranslation(0, animObj.bottomTrans, 0)
             .multiply(new THREE.Matrix4().makeScale(1, animObj.bottomScale, 1)));
-          piece.matrixWorldNeedsUpdate = true;
+          box.matrixWorldNeedsUpdate = true;
         });
         // Scale and move the top pieces
         topIndexes.forEach((index: number) => {
-          const piece: THREE.Group = fixedPieces[index];
-          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(0, animObj.topTrans, 0)
+          const box: THREE.Mesh = getBox(fixedPieces[index]);
+          box.applyMatrix4(new THREE.Matrix4().makeTranslation(0, animObj.topTrans, 0)
             .multiply(new THREE.Matrix4().makeScale(1, animObj.topScale, 1)));
-          piece.matrixWorldNeedsUpdate = true;
+          box.matrixWorldNeedsUpdate = true;
         });
         // Scale and move the back pieces
         backIndexes.forEach((index: number) => {
-          const piece: THREE.Group = fixedPieces[index];
-          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, animObj.backTrans)
+          const box: THREE.Mesh = getBox(fixedPieces[index]);
+          box.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, animObj.backTrans)
             .multiply(new THREE.Matrix4().makeScale(1, 1, animObj.backScale)));
-          piece.matrixWorldNeedsUpdate = true;
+          box.matrixWorldNeedsUpdate = true;
         });
         // Scale and move the front pieces
         frontIndexes.forEach((index: number) => {
-          const piece: THREE.Group = fixedPieces[index];
-          piece.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, animObj.frontTrans)
+          const box: THREE.Mesh = getBox(fixedPieces[index]);
+          box.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, animObj.frontTrans)
             .multiply(new THREE.Matrix4().makeScale(1, 1, animObj.frontScale)));
-          piece.matrixWorldNeedsUpdate = true;
+          box.matrixWorldNeedsUpdate = true;
         });
       },
       onComplete: () => {
